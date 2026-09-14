@@ -1,10 +1,4 @@
-# Gradle
-.gradle/
-/build/
-/app/build/
-/*/build/
-out/
- 
+
 # Local configuration (contém caminho do SDK e possivelmente chaves de API)
 local.properties
  
