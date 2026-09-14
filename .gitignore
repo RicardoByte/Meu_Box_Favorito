@@ -1,12 +1,18 @@
+# Gradle
+.gradle/
+/build/
+/app/build/
+/*/build/
+out/
 
 # Local configuration (contém caminho do SDK e possivelmente chaves de API)
 local.properties
- 
+
 # Assinatura do APK/keystore — NUNCA versionar
 *.jks
 *.keystore
 key.properties
- 
+
 # Android Studio / IntelliJ
 .idea/
 *.iml
@@ -14,20 +20,19 @@ key.properties
 captures/
 .externalNativeBuild/
 .cxx/
- 
+
 # Log e cache
 *.log
 .navigation/
- 
+
 # Arquivos gerados de build
 *.apk
 *.aab
 *.ap_
 *.dex
- 
+
 # Playground / testes locais
 /local_tests/
- 
+
 # Kotlin
 .kotlin/
- 
