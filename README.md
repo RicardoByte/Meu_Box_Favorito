@@ -4,7 +4,7 @@ Aplicativo Android de catalogação e comunidade de filmes e séries, organizado
 
 Projeto desenvolvido para a disciplina de **Engenharia de Software (2026)**.
 
-**Integrantes:** Ricardo, Felipe Yuki, João Lucas Barbora
+**Integrantes:** Ricardo, Felipe Yuki, João Lucas Barbora, Felipe Chimango, Kayck Renan 
 
 ---
 
