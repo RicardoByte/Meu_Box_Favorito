@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissão para acessar a Internet (necessária para consumir a API do TMDb) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
