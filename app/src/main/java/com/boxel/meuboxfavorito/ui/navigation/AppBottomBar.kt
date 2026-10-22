@@ -12,16 +12,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.CollectionsBookmark
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun AppBottomBar(
@@ -29,23 +36,20 @@ fun AppBottomBar(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF202021))
+            .background(Color(0xFF0F0F11))
             .padding(
-                horizontal = 24.dp,
-                vertical = 10.dp
+                horizontal = 28.dp,
+                vertical = 8.dp
             ),
-
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-
         BottomBarItem(
-            icon = Icons.Default.Explore,
-            text = "Explore",
+            icon = Icons.Outlined.Explore,
+            text = "Explorar",
             selected = selectedRoute == "explore",
             onClick = {
                 onNavigate("explore")
@@ -53,8 +57,8 @@ fun AppBottomBar(
         )
 
         BottomBarItem(
-            icon = Icons.Default.Folder,
-            text = "Minhas Boxes",
+            icon = Icons.Outlined.CollectionsBookmark,
+            text = "Meus Boxes",
             selected = selectedRoute == "my_boxes",
             onClick = {
                 onNavigate("my_boxes")
@@ -62,7 +66,7 @@ fun AppBottomBar(
         )
 
         BottomBarItem(
-            icon = Icons.Default.Person,
+            icon = Icons.Outlined.Person,
             text = "Perfil",
             selected = selectedRoute == "profile",
             onClick = {
@@ -72,7 +76,6 @@ fun AppBottomBar(
     }
 }
 
-
 @Composable
 private fun BottomBarItem(
     icon: ImageVector,
@@ -80,40 +83,35 @@ private fun BottomBarItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-
     Column(
         modifier = Modifier.clickable {
             onClick()
         },
-
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Icon(
             imageVector = icon,
             contentDescription = text,
-
             tint = if (selected) {
-                Color(0xFFEAD7B0)
+                Color(0xFFFFB82E)
             } else {
-                Color(0xFFB7B0A7)
+                Color(0xFF8C867C)
             },
-
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
 
-        Spacer(
-            modifier = Modifier.height(3.dp)
-        )
+        Spacer(modifier = Modifier.height(3.dp))
 
         Text(
             text = text,
-
             color = if (selected) {
-                Color(0xFFEAD7B0)
+                Color(0xFFFFB82E)
             } else {
-                Color(0xFFB7B0A7)
-            }
+                Color(0xFF8C867C)
+            },
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 11.sp
         )
     }
 }

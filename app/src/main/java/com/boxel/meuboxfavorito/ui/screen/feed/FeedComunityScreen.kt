@@ -1,6 +1,7 @@
-package com.boxel.meuboxfavorito.ui.screen
+package com.boxel.meuboxfavorito.ui.screen.feed
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,7 +65,8 @@ data class CommunityBox(
 @Composable
 fun CommunityFeedScreen(
     viewModel: FeedViewModel = viewModel(),
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onBoxClick: (Int) -> Unit = {}
 ) {
 
     val movies by viewModel.movies.collectAsState()
@@ -162,7 +164,8 @@ fun CommunityFeedScreen(
 
                         CommunityContent(
                             movies = movies,
-                            searchText = searchText
+                            searchText = searchText,
+                            onBoxClick = onBoxClick
                         )
                     }
                 }
@@ -304,7 +307,8 @@ private fun CommunitySectionTitle(
 @Composable
 private fun CommunityContent(
     movies: List<Moviefmt>,
-    searchText: String
+    searchText: String,
+    onBoxClick: (Int) -> Unit = {}
 ) {
 
     val communityBoxes = remember(movies) {
@@ -375,7 +379,8 @@ private fun CommunityContent(
                 items(destaques) { box ->
 
                     HighlightBoxCard(
-                        box = box
+                        box = box,
+                        onClick = { onBoxClick(box.id) }
                     )
                 }
             }
@@ -416,7 +421,8 @@ private fun CommunityContent(
             items(filteredBoxes) { box ->
 
                 RecentBoxCard(
-                    box = box
+                    box = box,
+                    onClick = { onBoxClick(box.id) }
                 )
             }
         }
@@ -425,7 +431,8 @@ private fun CommunityContent(
 
 @Composable
 private fun HighlightBoxCard(
-    box: CommunityBox
+    box: CommunityBox,
+    onClick: () -> Unit = {}
 ) {
 
     val cover = box.filmes.firstOrNull {
@@ -438,6 +445,7 @@ private fun HighlightBoxCard(
             .height(410.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF1A1A1C))
+            .clickable { onClick() }
     ) {
 
         if (cover != null) {
@@ -541,11 +549,14 @@ private fun HighlightBoxCard(
 
 @Composable
 private fun RecentBoxCard(
-    box: CommunityBox
+    box: CommunityBox,
+    onClick: () -> Unit = {}
 ) {
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(14.dp),
         color = Color(0xFF1A1A1C)
     ) {
