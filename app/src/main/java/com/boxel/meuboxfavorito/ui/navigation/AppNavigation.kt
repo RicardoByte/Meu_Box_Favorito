@@ -17,6 +17,8 @@ import com.boxel.meuboxfavorito.ui.screen.myboxes.CreateBoxScreen
 import com.boxel.meuboxfavorito.ui.screen.myboxes.MyBoxesScreen
 import com.boxel.meuboxfavorito.ui.screen.profile.ProfileScreen
 
+import com.boxel.meuboxfavorito.ui.screen.review.CreateReviewScreen
+
 object AppRoutes {
 
     // Bottom Nav
@@ -31,13 +33,15 @@ object AppRoutes {
     // Com argumentos
     const val BOX_DETAIL    = "box_detail/{boxId}"
     const val MOVIE_DETAIL  = "movie_detail/{movieId}"
-    const val DISCUSSION    = "discussion/{boxId}"
+    const val DISCUSSION    = "discussion/{boxId}/{reviewId}"
     const val CREATE_BOX    = "create_box"
+    const val CREATE_REVIEW = "create_review/{boxId}"
 
     // Helpers para montar a rota com argumento
-    fun boxDetail(boxId: Int)    = "box_detail/$boxId"
-    fun movieDetail(movieId: Int) = "movie_detail/$movieId"
-    fun discussion(boxId: Int)   = "discussion/$boxId"
+    fun boxDetail(boxId: Int)                        = "box_detail/$boxId"
+    fun movieDetail(movieId: Int)                    = "movie_detail/$movieId"
+    fun discussion(boxId: Int, reviewId: Int = 101)  = "discussion/$boxId/$reviewId"
+    fun createReview(boxId: Int)                     = "create_review/$boxId"
 }
 
 @Composable
@@ -137,7 +141,7 @@ fun AppNavigation(
         }
 
         // ──────────────────────────────
-        // DETALHE DA BOX (Agora tela de discussão / box proprietário)
+        // DETALHE DA BOX (Tela de Resenhas da Box: Pública, Privada ou Colaborativa)
         // ──────────────────────────────
         composable(
             route = AppRoutes.BOX_DETAIL,
@@ -154,8 +158,8 @@ fun AppNavigation(
                 onMovieClick = { movieId ->
                     navController.navigate(AppRoutes.movieDetail(movieId))
                 },
-                onDiscussionClick = {
-                    navController.navigate(AppRoutes.discussion(boxId))
+                onDiscussionClick = { reviewId ->
+                    navController.navigate(AppRoutes.discussion(boxId, reviewId))
                 },
                 onNavigate = { route -> navController.navigate(route) }
             )
@@ -180,19 +184,25 @@ fun AppNavigation(
         }
 
         // ──────────────────────────────
-        // DISCUSSÃO
+        // DISCUSSÃO (Participar do debate da resenha selecionada)
         // ──────────────────────────────
         composable(
             route = AppRoutes.DISCUSSION,
             arguments = listOf(
-                navArgument("boxId") { type = NavType.IntType }
+                navArgument("boxId") { type = NavType.IntType },
+                navArgument("reviewId") {
+                    type = NavType.IntType
+                    defaultValue = 101
+                }
             )
         ) { backStackEntry ->
 
             val boxId = backStackEntry.arguments?.getInt("boxId") ?: return@composable
+            val reviewId = backStackEntry.arguments?.getInt("reviewId") ?: 101
 
             DiscussionScreen(
                 boxId = boxId,
+                reviewId = reviewId,
                 onBack = { navController.popBackStack() },
                 onNavigate = { route -> navController.navigate(route) }
             )

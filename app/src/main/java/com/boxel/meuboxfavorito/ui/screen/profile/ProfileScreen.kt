@@ -16,104 +16,92 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.boxel.meuboxfavorito.data.repository.BoxDetailData
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
+import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
 import com.boxel.meuboxfavorito.ui.navigation.AppRoutes
 
-// ─────────────────────────────────────────────────────────
-// Modelo de dados – virá do backend próprio no futuro
-// TODO: substituir por dados reais do usuário autenticado
-// ─────────────────────────────────────────────────────────
 private data class UserProfile(
     val displayName: String,
     val username: String,
     val bio: String,
     val joinYear: Int,
-    val totalBoxes: Int,
-    val totalFilmes: Int,
     val seguidores: Int
-)
-
-private data class ProfileBox(
-    val id: Int,
-    val title: String,
-    val descricao: String,
-    val quantidade: Int,
-    // TODO: substituir por URL real da capa vinda do backend
-    val coverEmoji: String
 )
 
 @Composable
 fun ProfileScreen(
     onNavigate: (String) -> Unit
 ) {
+    val userBoxes = remember { BoxDetailRepository.getUserBoxes() }
 
-    // TODO: substituir por ViewModel + dados reais
-    val perfil = UserProfile(
-        displayName = "Cinematic Explorer",
-        username = "@cinephile_x",
-        bio = "Curando as melhores experiências sci-fi e neo-noir. Construindo a biblioteca definitiva de narrativas visualmente deslumbrantes.",
-        joinYear = 2023,
-        totalBoxes = 12,
-        totalFilmes = 184,
-        seguidores = 342
-    )
+    val perfil = remember(userBoxes) {
+        UserProfile(
+            displayName = "Ricardo Byte",
+            username = "@ricardobyte",
+            bio = "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir. Construindo a biblioteca definitiva de narrativas visuais.",
+            joinYear = 2024,
+            seguidores = 342
+        )
+    }
 
-    val minhasBoxes = listOf(
-        ProfileBox(id = 1, title = "Noir Essentials", descricao = "Curadoria de clássicos neo-noir.", quantidade = 12, coverEmoji = "🎭"),
-        ProfileBox(id = 2, title = "Cyberpunk 2077 Mood", descricao = "Estética neon e distopia urbana.", quantidade = 8, coverEmoji = "🤖"),
-        ProfileBox(id = 3, title = "Sci-Fi Classics", descricao = "O melhor da ficção científica espacial.", quantidade = 15, coverEmoji = "🚀")
-    )
+    val totalFilmes = remember(userBoxes) {
+        userBoxes.sumOf { it.filmesCount }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF101011)
     ) {
-
         Box(modifier = Modifier.fillMaxSize()) {
-
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 90.dp)
             ) {
-
                 // ─── Cabeçalho ───────────────────────────
                 item {
                     ProfileHeader(
                         perfil = perfil,
-                        onEditClick = {
-                            // TODO: navegar para tela de edição de perfil
-                        },
-                        onShareClick = {
-                            // TODO: compartilhar perfil
-                        }
+                        onEditClick = { /* Edição de perfil */ },
+                        onShareClick = { /* Compartilhar perfil */ }
                     )
                 }
 
                 // ─── Estatísticas ─────────────────────────
                 item {
-                    ProfileStats(perfil = perfil)
+                    ProfileStats(
+                        totalBoxes = userBoxes.size,
+                        totalFilmes = totalFilmes,
+                        seguidores = perfil.seguidores
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
@@ -146,21 +134,61 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                items(count = minhasBoxes.size) { index ->
-                    val box = minhasBoxes[index]
-                    ProfileBoxCard(
-                        box = box,
-                        onClick = {
-                            // TODO: navegar para BoxDetailScreen quando tivermos ID real
+                if (userBoxes.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clickable { onNavigate(AppRoutes.CREATE_BOX) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF181611),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF26262B))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFB82E),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "Você ainda não criou nenhuma box",
+                                    color = Color(0xFFEAE5DF),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Toque aqui para criar sua primeira coleção de curadoria.",
+                                    color = Color(0xFF8C8376),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    }
+                } else {
+                    items(
+                        items = userBoxes,
+                        key = { it.id }
+                    ) { box ->
+                        ProfileBoxCard(
+                            box = box,
+                            onClick = {
+                                onNavigate(AppRoutes.boxDetail(box.id))
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
 
-                // ─── Sincronização Externa ────────────────
                 item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ExternalSyncCard()
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
@@ -180,17 +208,14 @@ private fun ProfileHeader(
     onEditClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Avatar placeholder
         Box(
             modifier = Modifier
                 .size(88.dp)
@@ -205,7 +230,6 @@ private fun ProfileHeader(
                 tint = Color(0xFFFFB82E),
                 modifier = Modifier.size(44.dp)
             )
-            // TODO: substituir por AsyncImage com URL do avatar do usuário
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -239,8 +263,6 @@ private fun ProfileHeader(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-
-            // Botão Editar Perfil
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -270,7 +292,6 @@ private fun ProfileHeader(
                 }
             }
 
-            // Botão Compartilhar
             Surface(
                 modifier = Modifier
                     .size(42.dp)
@@ -293,21 +314,21 @@ private fun ProfileHeader(
 
 @Composable
 private fun ProfileStats(
-    perfil: UserProfile
+    totalBoxes: Int,
+    totalFilmes: Int,
+    seguidores: Int
 ) {
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-
-        StatItem(label = "Boxes", value = perfil.totalBoxes.toString())
+        StatItem(label = "Boxes", value = totalBoxes.toString())
         StatDivider()
-        StatItem(label = "Filmes", value = perfil.totalFilmes.toString())
+        StatItem(label = "Filmes", value = totalFilmes.toString())
         StatDivider()
-        StatItem(label = "Seguidores", value = perfil.seguidores.toString())
+        StatItem(label = "Seguidores", value = seguidores.toString())
     }
 }
 
@@ -343,129 +364,121 @@ private fun StatDivider() {
 
 @Composable
 private fun ProfileBoxCard(
-    box: ProfileBox,
+    box: BoxDetailData,
     onClick: () -> Unit
 ) {
-
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF181611)
+        color = Color(0xFF181611),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF26262B))
     ) {
-
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            // Capa placeholder
-            // TODO: substituir por AsyncImage com URL real da capa da box
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(68.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF2A2520)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = box.coverEmoji, style = MaterialTheme.typography.headlineMedium)
+                val imageUrl = box.coverUrl
+                    ?: box.filmes.firstOrNull()?.poster_path?.let {
+                        if (it.startsWith("http")) it else "https://image.tmdb.org/t/p/w500$it"
+                    }
+
+                if (imageUrl != null) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = box.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Folder,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB82E),
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = box.title,
-                    color = Color(0xFFEAE5DF),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = box.descricao,
-                    color = Color(0xFF8C8376),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "▦  ${box.quantidade} Filmes",
-                    color = Color(0xFF6A6460),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExternalSyncCard() {
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF181611)
-    ) {
-
-        Column(modifier = Modifier.padding(16.dp)) {
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.SwapHoriz,
-                    contentDescription = null,
-                    tint = Color(0xFFFFB82E),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Sincronização Externa",
-                    color = Color(0xFFEAE5DF),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Mantenha seu histórico atualizado.",
-                color = Color(0xFF8C8376),
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Botão Importar do Letterboxd
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clickable {
-                        // TODO: integrar importação do Letterboxd
-                    },
-                shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF1E1C17)
-            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = Color(0xFFD8D2C7),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Importar do Letterboxd",
-                        color = Color(0xFFD8D2C7),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = box.title,
+                        color = Color(0xFFEAE5DF),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    val privacyIcon = when (box.privacyType) {
+                        BoxPrivacyType.PRIVADA -> Icons.Default.Lock
+                        else -> Icons.Default.Public
+                    }
+                    Icon(
+                        imageVector = privacyIcon,
+                        contentDescription = box.privacyType.label,
+                        tint = Color(0xFF8C8376),
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = box.description,
+                    color = Color(0xFF8C8376),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "▦ ${box.filmesCount} Filmes",
+                        color = Color(0xFFFFB82E),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "•",
+                        color = Color(0xFF555048),
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = "${box.reviews.size} Resenhas",
+                        color = Color(0xFF9E978C),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        text = "•",
+                        color = Color(0xFF555048),
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = box.privacyType.label,
+                        color = Color(0xFFBEB7AE),
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }

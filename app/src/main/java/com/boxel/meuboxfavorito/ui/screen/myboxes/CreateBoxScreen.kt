@@ -71,6 +71,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.BuildConfig
 import com.boxel.meuboxfavorito.data.remote.Moviefmt
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
+import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
 import com.boxel.meuboxfavorito.data.repository.MovieRepository
 import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
 import kotlinx.coroutines.delay
@@ -653,7 +655,19 @@ fun CreateBoxScreen(
                             erroTitulo = true
                             return@clickable
                         }
-                        onBoxCreated(1)
+                        val targetPrivacy = when (privacidade) {
+                            Privacidade.PUBLICA -> BoxPrivacyType.PUBLICA
+                            Privacidade.PRIVADA -> BoxPrivacyType.PRIVADA
+                            Privacidade.COLABORATIVA -> BoxPrivacyType.COLABORATIVA
+                        }
+                        val newBox = BoxDetailRepository.createBox(
+                            title = titulo,
+                            description = descricao,
+                            privacyType = targetPrivacy,
+                            coverUrl = capaSelecionadaUrl,
+                            filmes = filmesAdicionados.toList()
+                        )
+                        onBoxCreated(newBox.id)
                     },
                 color = Color(0xFFFFB82E),
                 shape = RoundedCornerShape(0.dp)

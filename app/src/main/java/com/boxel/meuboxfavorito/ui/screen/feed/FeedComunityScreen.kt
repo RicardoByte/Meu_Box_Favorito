@@ -50,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.BuildConfig
 import com.boxel.meuboxfavorito.data.remote.Moviefmt
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
 import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
 data class CommunityBox(
@@ -714,72 +715,58 @@ private fun CommunityImageCollage(
 private fun createCommunityBoxes(
     movies: List<Moviefmt>
 ): List<CommunityBox> {
-
-    if (movies.isEmpty()) {
-        return emptyList()
-    }
-
-    val grupo1 = movies
-        .take(5)
-
-    val grupo2 = movies
-        .drop(5)
-        .take(5)
-
-    val grupo3 = movies
-        .drop(10)
-        .take(5)
-
-    val grupo4 = movies
-        .drop(15)
-        .take(5)
+    val box1 = BoxDetailRepository.getBoxById(1)
+    val box2 = BoxDetailRepository.getBoxById(2)
+    val box3 = BoxDetailRepository.getBoxById(3)
+    val box4 = BoxDetailRepository.getBoxById(4)
+    val box5 = BoxDetailRepository.getBoxById(5)
 
     return listOf(
-
         CommunityBox(
             id = 1,
-            titulo = "Cinema noir e seus mistérios",
-            usuario = "@cine_marcelo",
-            descricao = "Uma seleção de filmes para quem gosta de mistério, suspense e histórias envolventes.",
-            filmes = grupo1.ifEmpty {
-                movies.take(5)
-            },
-            curtidas = 1200,
+            titulo = box1.title,
+            usuario = box1.creatorHandle,
+            descricao = box1.description,
+            filmes = box1.filmes,
+            curtidas = 3400,
             destaque = true
         ),
 
         CommunityBox(
-            id = 2,
-            titulo = "Filmes que todo mundo deveria assistir",
-            usuario = "@cinema_clube",
-            descricao = "Uma seleção especial de filmes populares escolhidos pela comunidade.",
-            filmes = grupo2.ifEmpty {
-                movies.take(5)
-            },
-            curtidas = 870,
+            id = 4,
+            titulo = box4.title,
+            usuario = box4.creatorHandle,
+            descricao = box4.description,
+            filmes = box4.filmes,
+            curtidas = 4200,
             destaque = true
         ),
 
         CommunityBox(
             id = 3,
-            titulo = "Clássicos da minha infância",
-            usuario = "@tarantino_vibes",
-            descricao = "Uma seleção essencial dos filmes independentes que definiram uma década.",
-            filmes = grupo3.ifEmpty {
-                movies.take(5)
-            },
-            curtidas = 420
+            titulo = box3.title,
+            usuario = box3.creatorHandle,
+            descricao = box3.description,
+            filmes = box3.filmes,
+            curtidas = 930
         ),
 
         CommunityBox(
-            id = 4,
-            titulo = "Filmes para assistir no fim de semana",
-            usuario = "@movie_lovers",
-            descricao = "Algumas escolhas para aproveitar o final de semana assistindo bons filmes.",
-            filmes = grupo4.ifEmpty {
-                movies.take(5)
-            },
-            curtidas = 315
+            id = 5,
+            titulo = box5.title,
+            usuario = box5.creatorHandle,
+            descricao = box5.description,
+            filmes = box5.filmes,
+            curtidas = 1100
+        ),
+
+        CommunityBox(
+            id = 2,
+            titulo = box2.title,
+            usuario = box2.creatorHandle,
+            descricao = box2.description,
+            filmes = box2.filmes,
+            curtidas = 420
         )
     )
 }

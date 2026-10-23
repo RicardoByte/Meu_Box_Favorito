@@ -51,6 +51,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.BuildConfig
 import com.boxel.meuboxfavorito.data.remote.Moviefmt
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
+import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
 import com.boxel.meuboxfavorito.ui.myboxes.MyBoxesViewModel
 
@@ -826,52 +828,17 @@ private fun FloatingAddButton(
 private fun createMyBoxes(
     movies: List<Moviefmt>
 ): List<MyBox> {
-
-    if (movies.isEmpty()) {
-        return emptyList()
-    }
-
-    val grupo1 = movies
-        .take(4)
-
-    val grupo2 = movies
-        .drop(4)
-        .take(4)
-        .ifEmpty {
-            grupo1
-        }
-
-    val grupo3 = movies
-        .drop(8)
-        .take(4)
-        .ifEmpty {
-            grupo1
-        }
-
-    return listOf(
-
+    return BoxDetailRepository.getAllBoxes().map { box ->
         MyBox(
-            id = 1,
-            title = "Terror Trash",
-            quantidade = 24,
-            tipo = BoxType.PUBLICA,
-            filmes = grupo1
-        ),
-
-        MyBox(
-            id = 2,
-            title = "Filmes do nerd",
-            quantidade = 11,
-            tipo = BoxType.PRIVADA,
-            filmes = grupo2
-        ),
-
-        MyBox(
-            id = 3,
-            title = "Filmes pra postar no insta",
-            quantidade = 8,
-            tipo = BoxType.COLABORATIVA,
-            filmes = grupo3
+            id = box.id,
+            title = box.title,
+            quantidade = box.filmesCount,
+            tipo = when (box.privacyType) {
+                BoxPrivacyType.PUBLICA -> BoxType.PUBLICA
+                BoxPrivacyType.PRIVADA -> BoxType.PRIVADA
+                BoxPrivacyType.COLABORATIVA -> BoxType.COLABORATIVA
+            },
+            filmes = box.filmes
         )
-    )
+    }
 }
