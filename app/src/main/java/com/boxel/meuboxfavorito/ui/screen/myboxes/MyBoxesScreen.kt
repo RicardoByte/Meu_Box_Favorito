@@ -1,4 +1,4 @@
-package com.boxel.meuboxfavorito.ui.screen
+package com.boxel.meuboxfavorito.ui.screen.myboxes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,8 +51,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.BuildConfig
 import com.boxel.meuboxfavorito.data.remote.Moviefmt
-import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
+import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
+import com.boxel.meuboxfavorito.ui.myboxes.MyBoxesViewModel
 
 
 private data class MyBox(
@@ -73,8 +75,10 @@ private enum class BoxType {
 
 @Composable
 fun MyBoxesScreen(
-    viewModel: FeedViewModel = viewModel(),
-    onNavigate: (String) -> Unit
+    viewModel: MyBoxesViewModel = viewModel(),
+    onNavigate: (String) -> Unit,
+    onBoxClick: (Int) -> Unit = {},
+    onCreateBoxClick: () -> Unit = {}
 ) {
 
     val movies by viewModel.movies.collectAsState()
@@ -92,7 +96,7 @@ fun MyBoxesScreen(
     LaunchedEffect(Unit) {
 
         if (movies.isEmpty()) {
-            viewModel.loadPopularMovies(
+            viewModel.loadMovies(
                 apiKey = BuildConfig.TMDB_API_KEY
             )
         }
@@ -245,13 +249,16 @@ fun MyBoxesScreen(
                         items(boxesFiltradas) { box ->
 
                             MyBoxCard(
-                                box = box
+                                box = box,
+                                onClick = { onBoxClick(box.id) }
                             )
                         }
 
                         item {
 
-                            CreateNewBoxCard()
+                            CreateNewBoxCard(
+                                onClick = onCreateBoxClick
+                            )
                         }
                     }
                 }
@@ -269,7 +276,8 @@ fun MyBoxesScreen(
                     .padding(
                         end = 22.dp,
                         bottom = 78.dp
-                    )
+                    ),
+                onClick = onCreateBoxClick
             )
         }
     }
@@ -487,7 +495,8 @@ private fun FilterButton(
 
 @Composable
 private fun MyBoxCard(
-    box: MyBox
+    box: MyBox,
+    onClick: () -> Unit = {}
 ) {
 
     Box(
@@ -496,7 +505,7 @@ private fun MyBoxCard(
             .aspectRatio(0.74f)
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF222224))
-            .clickable {}
+            .clickable { onClick() }
     ) {
 
         Box(
@@ -726,7 +735,9 @@ private fun BoxTypeBadge(
  */
 
 @Composable
-private fun CreateNewBoxCard() {
+private fun CreateNewBoxCard(
+    onClick: () -> Unit = {}
+) {
 
     Box(
         modifier = Modifier
@@ -738,7 +749,7 @@ private fun CreateNewBoxCard() {
                 color = Color(0xFF4A4642),
                 shape = RoundedCornerShape(12.dp)
             )
-            .clickable {},
+            .clickable { onClick() },
 
         contentAlignment = Alignment.Center
     ) {
@@ -784,7 +795,8 @@ private fun CreateNewBoxCard() {
 
 @Composable
 private fun FloatingAddButton(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
 
     Box(
@@ -792,7 +804,7 @@ private fun FloatingAddButton(
             .size(58.dp)
             .clip(CircleShape)
             .background(Color(0xFFFFB82E))
-            .clickable {},
+            .clickable { onClick() },
 
         contentAlignment = Alignment.Center
     ) {
@@ -816,52 +828,17 @@ private fun FloatingAddButton(
 private fun createMyBoxes(
     movies: List<Moviefmt>
 ): List<MyBox> {
-
-    if (movies.isEmpty()) {
-        return emptyList()
-    }
-
-    val grupo1 = movies
-        .take(4)
-
-    val grupo2 = movies
-        .drop(4)
-        .take(4)
-        .ifEmpty {
-            grupo1
-        }
-
-    val grupo3 = movies
-        .drop(8)
-        .take(4)
-        .ifEmpty {
-            grupo1
-        }
-
-    return listOf(
-
+    return BoxDetailRepository.getAllBoxes().map { box ->
         MyBox(
-            id = 1,
-            title = "Terror Trash",
-            quantidade = 24,
-            tipo = BoxType.PUBLICA,
-            filmes = grupo1
-        ),
-
-        MyBox(
-            id = 2,
-            title = "Filmes do nerd",
-            quantidade = 11,
-            tipo = BoxType.PRIVADA,
-            filmes = grupo2
-        ),
-
-        MyBox(
-            id = 3,
-            title = "Filmes pra postar no insta",
-            quantidade = 8,
-            tipo = BoxType.COLABORATIVA,
-            filmes = grupo3
+            id = box.id,
+            title = box.title,
+            quantidade = box.filmesCount,
+            tipo = when (box.privacyType) {
+                BoxPrivacyType.PUBLICA -> BoxType.PUBLICA
+                BoxPrivacyType.PRIVADA -> BoxType.PRIVADA
+                BoxPrivacyType.COLABORATIVA -> BoxType.COLABORATIVA
+            },
+            filmes = box.filmes
         )
-    )
+    }
 }
