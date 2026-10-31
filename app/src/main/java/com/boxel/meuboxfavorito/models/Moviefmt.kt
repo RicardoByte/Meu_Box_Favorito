@@ -1,4 +1,4 @@
-package com.boxel.meuboxfavorito.data.remote
+package com.boxel.meuboxfavorito.models
 
 import kotlinx.serialization.Serializable
 

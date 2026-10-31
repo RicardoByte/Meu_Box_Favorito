@@ -49,12 +49,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.BuildConfig
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
 import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.Moviefmt
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
-import com.boxel.meuboxfavorito.ui.myboxes.MyBoxesViewModel
+import com.boxel.meuboxfavorito.ui.view.MyBoxesViewModel
 
 
 private data class MyBox(
@@ -85,57 +85,31 @@ fun MyBoxesScreen(
     val carregando by viewModel.carregando.collectAsState()
     val erro by viewModel.erro.collectAsState()
 
-    var searchText by remember {
-        mutableStateOf("")
-    }
-
-    var filtroSelecionado by remember {
-        mutableStateOf("Todas")
-    }
+    val searchText by viewModel.searchText.collectAsState()
+    val filtroSelecionado by viewModel.filtroSelecionado.collectAsState()
+    val filteredBoxes by viewModel.boxesFiltradas.collectAsState()
 
     LaunchedEffect(Unit) {
-
         if (movies.isEmpty()) {
             viewModel.loadMovies(
-                apiKey = BuildConfig.TMDB_API_KEY
+                apiKey = com.boxel.meuboxfavorito.BuildConfig.TMDB_API_KEY
             )
         }
     }
 
-    val boxes = remember(movies) {
-        createMyBoxes(movies)
-    }
-
-    val boxesFiltradas = remember(
-        boxes,
-        filtroSelecionado,
-        searchText
-    ) {
-
-        boxes.filter { box ->
-
-            val passaFiltro = when (filtroSelecionado) {
-
-                "Criadas por mim" -> {
-                    box.tipo == BoxType.PRIVADA ||
-                            box.tipo == BoxType.PUBLICA
-                }
-
-                "Colaborativas" -> {
-                    box.tipo == BoxType.COLABORATIVA
-                }
-
-                else -> true
-            }
-
-            val passaBusca =
-                searchText.isBlank() ||
-                        box.title.contains(
-                            searchText,
-                            ignoreCase = true
-                        )
-
-            passaFiltro && passaBusca
+    val boxesFiltradas = remember(filteredBoxes) {
+        filteredBoxes.map { box ->
+            MyBox(
+                id = box.id,
+                title = box.title,
+                quantidade = box.filmesCount,
+                tipo = when (box.privacyType) {
+                    BoxPrivacyType.PUBLICA -> BoxType.PUBLICA
+                    BoxPrivacyType.PRIVADA -> BoxType.PRIVADA
+                    BoxPrivacyType.COLABORATIVA -> BoxType.COLABORATIVA
+                },
+                filmes = box.filmes
+            )
         }
     }
 
@@ -194,9 +168,7 @@ fun MyBoxesScreen(
 
                         MyBoxesSearchBar(
                             value = searchText,
-                            onValueChange = {
-                                searchText = it
-                            }
+                            onValueChange = viewModel::onSearchChange
                         )
 
                         Spacer(
@@ -205,9 +177,7 @@ fun MyBoxesScreen(
 
                         MyBoxesFilters(
                             selecionado = filtroSelecionado,
-                            onSelecionar = {
-                                filtroSelecionado = it
-                            }
+                            onSelecionar = viewModel::onFiltroChange
                         )
 
                         Spacer(

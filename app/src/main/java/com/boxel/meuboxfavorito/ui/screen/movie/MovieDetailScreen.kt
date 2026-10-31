@@ -44,46 +44,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.BuildConfig
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
-import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
+import com.boxel.meuboxfavorito.models.Moviefmt
+import com.boxel.meuboxfavorito.ui.view.MovieDetailViewModel
 
 @Composable
 fun MovieDetailScreen(
     movieId: Int,
     onBack: () -> Unit,
-    // TODO: substituir FeedViewModel por MovieDetailViewModel dedicado
-    // que busca GET /movie/{id} diretamente no TMDb
-    viewModel: FeedViewModel = viewModel()
+    viewModel: MovieDetailViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    val allMovies by viewModel.movies.collectAsState()
-    var salvo by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (allMovies.isEmpty()) {
-            viewModel.loadPopularMovies(BuildConfig.TMDB_API_KEY)
-        }
+    LaunchedEffect(movieId) {
+        viewModel.loadMovie(movieId)
     }
 
-    // TODO: substituir por chamada direta ao endpoint GET /movie/{movieId}
-    val filme = remember(movieId, allMovies) {
-        allMovies.firstOrNull { it.id == movieId }
-    }
+    val filme = uiState.movie
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF101011)
     ) {
-
-        if (filme == null) {
+        if (filme == null || uiState.isLoading) {
             MovieDetailSkeleton(onBack = onBack)
         } else {
             MovieDetailContent(
                 filme = filme,
-                salvo = salvo,
+                salvo = uiState.isSaved,
                 onBack = onBack,
-                onSalvar = { salvo = !salvo }
+                onSalvar = { viewModel.toggleSaved() }
             )
         }
     }

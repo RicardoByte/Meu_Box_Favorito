@@ -49,10 +49,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.BuildConfig
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
 import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
+import com.boxel.meuboxfavorito.models.Moviefmt
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
+import com.boxel.meuboxfavorito.ui.view.FeedViewModel
 data class CommunityBox(
     val id: Int,
     val titulo: String,

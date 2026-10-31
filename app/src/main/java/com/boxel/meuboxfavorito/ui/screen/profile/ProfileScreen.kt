@@ -1,5 +1,6 @@
 package com.boxel.meuboxfavorito.ui.screen.profile
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,63 +20,59 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.data.repository.BoxDetailData
-import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.UserAccount
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
 import com.boxel.meuboxfavorito.ui.navigation.AppRoutes
-
-private data class UserProfile(
-    val displayName: String,
-    val username: String,
-    val bio: String,
-    val joinYear: Int,
-    val seguidores: Int
-)
+import com.boxel.meuboxfavorito.ui.view.ProfileViewModel
 
 @Composable
 fun ProfileScreen(
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    viewModel: ProfileViewModel = viewModel()
 ) {
-    val userBoxes = remember { BoxDetailRepository.getUserBoxes() }
-
-    val perfil = remember(userBoxes) {
-        UserProfile(
-            displayName = "Ricardo Byte",
-            username = "@ricardobyte",
-            bio = "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir. Construindo a biblioteca definitiva de narrativas visuais.",
-            joinYear = 2024,
-            seguidores = 342
-        )
-    }
-
-    val totalFilmes = remember(userBoxes) {
-        userBoxes.sumOf { it.filmesCount }
-    }
+    val currentUser by viewModel.currentUser.collectAsState()
+    val userBoxes by viewModel.userBoxes.collectAsState()
+    val totalFilmes by viewModel.totalFilmes.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -89,9 +86,12 @@ fun ProfileScreen(
                 // ─── Cabeçalho ───────────────────────────
                 item {
                     ProfileHeader(
-                        perfil = perfil,
-                        onEditClick = { /* Edição de perfil */ },
-                        onShareClick = { /* Compartilhar perfil */ }
+                        user = currentUser,
+                        onEditClick = { viewModel.setShowEditDialog(true) },
+                        onLogoutClick = {
+                            viewModel.logout()
+                            onNavigate(AppRoutes.AUTH)
+                        }
                     )
                 }
 
@@ -100,7 +100,7 @@ fun ProfileScreen(
                     ProfileStats(
                         totalBoxes = userBoxes.size,
                         totalFilmes = totalFilmes,
-                        seguidores = perfil.seguidores
+                        seguidores = currentUser?.seguidores ?: 342
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -200,14 +200,30 @@ fun ProfileScreen(
             )
         }
     }
+
+    if (uiState.showEditDialog) {
+        EditProfileDialog(
+            currentUser = currentUser,
+            onDismiss = { viewModel.setShowEditDialog(false) },
+            onSave = { novoNome, novaBio, novoAvatar ->
+                viewModel.updateProfile(novoNome, novaBio, novoAvatar)
+            }
+        )
+    }
 }
 
 @Composable
 private fun ProfileHeader(
-    perfil: UserProfile,
+    user: UserAccount?,
     onEditClick: () -> Unit,
-    onShareClick: () -> Unit
+    onLogoutClick: () -> Unit
 ) {
+    val displayName = user?.nomeCompleto ?: "Ricardo Byte"
+    val username = "@${user?.nomeUsuario ?: "ricardobyte"}"
+    val bio = user?.bio ?: "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir."
+    val joinYear = user?.joinYear ?: 2024
+    val avatarUrl = user?.avatarUrl
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -224,25 +240,34 @@ private fun ProfileHeader(
                 .border(width = 2.dp, color = Color(0xFFFFB82E), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Avatar",
-                tint = Color(0xFFFFB82E),
-                modifier = Modifier.size(44.dp)
-            )
+            if (!avatarUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Avatar",
+                    tint = Color(0xFFFFB82E),
+                    modifier = Modifier.size(44.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = perfil.displayName,
+            text = displayName,
             color = Color(0xFFFFB82E),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
 
         Text(
-            text = "${perfil.username}  •  Entrou em ${perfil.joinYear}",
+            text = "$username  •  Entrou em $joinYear",
             color = Color(0xFF8C8376),
             style = MaterialTheme.typography.bodySmall
         )
@@ -250,7 +275,7 @@ private fun ProfileHeader(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = perfil.bio,
+            text = bio,
             color = Color(0xFFB0AA9E),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -295,15 +320,16 @@ private fun ProfileHeader(
             Surface(
                 modifier = Modifier
                     .size(42.dp)
-                    .clickable { onShareClick() },
+                    .clickable { onLogoutClick() },
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF1E1C17)
+                color = Color(0xFF1E1C17),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2822))
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Compartilhar",
-                        tint = Color(0xFFD8D2C7),
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Sair",
+                        tint = Color(0xFFE05C5C),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -479,6 +505,184 @@ private fun ProfileBoxCard(
                         text = box.privacyType.label,
                         color = Color(0xFFBEB7AE),
                         style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Diálogo interativo para edição dos inputs do perfil do usuário com validação e persistência.
+ */
+@Composable
+private fun EditProfileDialog(
+    currentUser: UserAccount?,
+    onDismiss: () -> Unit,
+    onSave: (nomeCompleto: String, bio: String, avatarUrl: String?) -> Unit
+) {
+    var nome by remember { mutableStateOf(currentUser?.nomeCompleto ?: "Ricardo Byte") }
+    var bio by remember { mutableStateOf(currentUser?.bio ?: "") }
+    var avatar by remember { mutableStateOf(currentUser?.avatarUrl ?: "") }
+    var erroNome by remember { mutableStateOf<String?>(null) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF19181B),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2A30))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Editar Perfil",
+                        color = Color(0xFFF2ECE4),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Fechar",
+                        tint = Color(0xFF8C867C),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { onDismiss() }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Campo Nome
+                Text(
+                    text = "NOME DE EXIBIÇÃO",
+                    color = Color(0xFFC8A97E),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF101012))
+                        .border(
+                            1.dp,
+                            if (erroNome != null) Color(0xFFE05C5C) else Color(0xFF2C2A30),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(12.dp)
+                ) {
+                    BasicTextField(
+                        value = nome,
+                        onValueChange = {
+                            nome = it
+                            erroNome = null
+                        },
+                        singleLine = true,
+                        cursorBrush = SolidColor(Color(0xFFFFB82E)),
+                        textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 14.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (erroNome != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = erroNome!!,
+                        color = Color(0xFFE05C5C),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Campo Bio
+                Text(
+                    text = "BIOGRAFIA CINEMATOGRÁFICA",
+                    color = Color(0xFFC8A97E),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF101012))
+                        .border(1.dp, Color(0xFF2C2A30), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    BasicTextField(
+                        value = bio,
+                        onValueChange = { bio = it },
+                        singleLine = false,
+                        minLines = 3,
+                        cursorBrush = SolidColor(Color(0xFFFFB82E)),
+                        textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 14.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Campo Avatar URL
+                Text(
+                    text = "URL DA FOTO DE PERFIL (OPCIONAL)",
+                    color = Color(0xFFC8A97E),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF101012))
+                        .border(1.dp, Color(0xFF2C2A30), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    BasicTextField(
+                        value = avatar,
+                        onValueChange = { avatar = it },
+                        singleLine = true,
+                        cursorBrush = SolidColor(Color(0xFFFFB82E)),
+                        textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 14.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Botão Salvar
+                Button(
+                    onClick = {
+                        if (nome.isBlank() || nome.trim().length < 3) {
+                            erroNome = "O nome deve ter no mínimo 3 caracteres"
+                            return@Button
+                        }
+                        onSave(nome, bio, avatar.ifBlank { null })
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB82E))
+                ) {
+                    Text(
+                        text = "Salvar Alterações",
+                        color = Color(0xFF1A1209),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall
                     )
                 }
             }

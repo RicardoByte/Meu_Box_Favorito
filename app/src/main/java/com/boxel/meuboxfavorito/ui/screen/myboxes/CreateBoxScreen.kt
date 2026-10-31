@@ -69,92 +69,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.BuildConfig
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
-import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
-import com.boxel.meuboxfavorito.data.repository.MovieRepository
-import com.boxel.meuboxfavorito.ui.feed.FeedViewModel
-import kotlinx.coroutines.delay
-
-private enum class Privacidade(val label: String) {
-    PUBLICA("Pública"),
-    PRIVADA("Privada"),
-    COLABORATIVA("Colaborativa")
-}
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.Moviefmt
+import com.boxel.meuboxfavorito.ui.view.CreateBoxViewModel
 
 @Composable
 fun CreateBoxScreen(
     onBack: () -> Unit,
     onBoxCreated: (boxId: Int) -> Unit,
-    viewModel: FeedViewModel = viewModel()
+    viewModel: CreateBoxViewModel = viewModel()
 ) {
-    val allMovies by viewModel.movies.collectAsState()
-    val repository = remember { MovieRepository() }
-
-    var titulo by remember { mutableStateOf("") }
-    var descricao by remember { mutableStateOf("") }
-    var privacidade by remember { mutableStateOf(Privacidade.PUBLICA) }
-    var colaborativa by remember { mutableStateOf(false) }
-    var erroTitulo by remember { mutableStateOf(false) }
-
-    // Capa da Box via TMDb
-    var capaSelecionadaUrl by remember { mutableStateOf<String?>(null) }
-    var filmeCapaNome by remember { mutableStateOf<String?>(null) }
-    var buscaCapa by remember { mutableStateOf("") }
-    var mostrandoBuscaCapa by remember { mutableStateOf(false) }
-    var resultadosCapa by remember { mutableStateOf<List<Moviefmt>>(emptyList()) }
-    var buscandoCapa by remember { mutableStateOf(false) }
-
-    // Filmes adicionados
-    var buscaFilme by remember { mutableStateOf("") }
-    val filmesAdicionados = remember { mutableStateListOf<Moviefmt>() }
-    var resultadosFilmesBusca by remember { mutableStateOf<List<Moviefmt>>(emptyList()) }
-    var buscandoFilmes by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (allMovies.isEmpty()) {
-            viewModel.loadPopularMovies(BuildConfig.TMDB_API_KEY)
-        }
-    }
-
-    // Busca de Capas na API TMDb por nome
-    LaunchedEffect(buscaCapa) {
-        if (buscaCapa.length >= 2) {
-            buscandoCapa = true
-            delay(350)
-            try {
-                val res = repository.searchMovies(BuildConfig.TMDB_API_KEY, buscaCapa)
-                resultadosCapa = res.filter { !it.backdrop_path.isNullOrBlank() || !it.poster_path.isNullOrBlank() }
-            } catch (e: Exception) {
-                resultadosCapa = allMovies.filter { it.title.contains(buscaCapa, ignoreCase = true) }
-            } finally {
-                buscandoCapa = false
-            }
-        } else {
-            resultadosCapa = emptyList()
-        }
-    }
-
-    // Busca de Filmes na API TMDb por nome
-    LaunchedEffect(buscaFilme) {
-        if (buscaFilme.length >= 2) {
-            buscandoFilmes = true
-            delay(350)
-            try {
-                val res = repository.searchMovies(BuildConfig.TMDB_API_KEY, buscaFilme)
-                resultadosFilmesBusca = res.filter { m -> filmesAdicionados.none { it.id == m.id } }
-            } catch (e: Exception) {
-                resultadosFilmesBusca = allMovies
-                    .filter { it.title.contains(buscaFilme, ignoreCase = true) }
-                    .filter { m -> filmesAdicionados.none { it.id == m.id } }
-            } finally {
-                buscandoFilmes = false
-            }
-        } else {
-            resultadosFilmesBusca = emptyList()
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -186,24 +112,21 @@ fun CreateBoxScreen(
                     ) {
                         CreateBoxTextField(
                             label = "TÍTULO DA BOX",
-                            value = titulo,
+                            value = uiState.titulo,
                             placeholder = "Ex: Noir Essentials",
-                            isError = erroTitulo,
-                            onValueChange = {
-                                titulo = it
-                                erroTitulo = false
-                            }
+                            isError = uiState.erroTitulo,
+                            onValueChange = { viewModel.onTituloChange(it) }
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
 
                         CreateBoxTextField(
                             label = "DESCRIÇÃO",
-                            value = descricao,
+                            value = uiState.descricao,
                             placeholder = "Fale sobre a curadoria desta coleção...",
                             singleLine = false,
                             minLines = 3,
-                            onValueChange = { descricao = it }
+                            onValueChange = { viewModel.onDescricaoChange(it) }
                         )
                     }
                 }
@@ -214,7 +137,7 @@ fun CreateBoxScreen(
                         icon = Icons.Default.Image,
                         title = "Capa da Box"
                     ) {
-                        if (capaSelecionadaUrl != null) {
+                        if (uiState.capaSelecionadaUrl != null) {
                             // Capa selecionada exibida
                             Box(
                                 modifier = Modifier
@@ -224,8 +147,8 @@ fun CreateBoxScreen(
                                     .border(1.dp, Color(0xFF2C2C33), RoundedCornerShape(10.dp))
                             ) {
                                 AsyncImage(
-                                    model = capaSelecionadaUrl,
-                                    contentDescription = filmeCapaNome,
+                                    model = uiState.capaSelecionadaUrl,
+                                    contentDescription = uiState.filmeCapaNome,
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
@@ -241,11 +164,11 @@ fun CreateBoxScreen(
                                                 )
                                             )
                                         )
-                                )
+                                    )
 
-                                if (filmeCapaNome != null) {
+                                if (uiState.filmeCapaNome != null) {
                                     Text(
-                                        text = "🎬 $filmeCapaNome",
+                                        text = "🎬 ${uiState.filmeCapaNome}",
                                         color = Color(0xFFF2ECE4),
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.SemiBold,
@@ -262,7 +185,7 @@ fun CreateBoxScreen(
                                 ) {
                                     Surface(
                                         modifier = Modifier.clickable {
-                                            mostrandoBuscaCapa = !mostrandoBuscaCapa
+                                            viewModel.toggleMostrandoBuscaCapa()
                                         },
                                         shape = RoundedCornerShape(6.dp),
                                         color = Color(0xDD1F1F24)
@@ -278,8 +201,7 @@ fun CreateBoxScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Surface(
                                         modifier = Modifier.clickable {
-                                            capaSelecionadaUrl = null
-                                            filmeCapaNome = null
+                                            viewModel.onClearCapa()
                                         },
                                         shape = RoundedCornerShape(6.dp),
                                         color = Color(0xDD1F1F24)
@@ -308,7 +230,7 @@ fun CreateBoxScreen(
                                         shape = RoundedCornerShape(10.dp)
                                     )
                                     .clickable {
-                                        mostrandoBuscaCapa = !mostrandoBuscaCapa
+                                        viewModel.toggleMostrandoBuscaCapa()
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -346,7 +268,7 @@ fun CreateBoxScreen(
 
                         // Interface de Busca de Capa no TMDb
                         AnimatedVisibility(
-                            visible = mostrandoBuscaCapa || capaSelecionadaUrl == null,
+                            visible = uiState.mostrandoBuscaCapa || uiState.capaSelecionadaUrl == null,
                             enter = expandVertically(),
                             exit = shrinkVertically()
                         ) {
@@ -369,7 +291,7 @@ fun CreateBoxScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Box(modifier = Modifier.weight(1f)) {
-                                        if (buscaCapa.isEmpty()) {
+                                        if (uiState.buscaCapa.isEmpty()) {
                                             Text(
                                                 text = "Buscar filme no TMDb para a capa...",
                                                 color = Color(0xFF555048),
@@ -377,8 +299,8 @@ fun CreateBoxScreen(
                                             )
                                         }
                                         BasicTextField(
-                                            value = buscaCapa,
-                                            onValueChange = { buscaCapa = it },
+                                            value = uiState.buscaCapa,
+                                            onValueChange = { viewModel.onBuscaCapaChange(it) },
                                             singleLine = true,
                                             cursorBrush = SolidColor(Color(0xFFFFB82E)),
                                             textStyle = TextStyle(
@@ -388,7 +310,7 @@ fun CreateBoxScreen(
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
-                                    if (buscandoCapa) {
+                                    if (uiState.buscandoCapa) {
                                         CircularProgressIndicator(
                                             color = Color(0xFFFFB82E),
                                             modifier = Modifier.size(16.dp),
@@ -397,7 +319,7 @@ fun CreateBoxScreen(
                                     }
                                 }
 
-                                if (resultadosCapa.isNotEmpty()) {
+                                if (uiState.resultadosCapa.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = "Toque em uma capa para selecioná-la:",
@@ -409,7 +331,7 @@ fun CreateBoxScreen(
                                     LazyRow(
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        items(resultadosCapa.take(8)) { filme ->
+                                        items(uiState.resultadosCapa.take(8)) { filme ->
                                             val backdropUrl = filme.backdrop_path?.let { "https://image.tmdb.org/t/p/w780$it" }
                                                 ?: filme.poster_path?.let { "https://image.tmdb.org/t/p/w500$it" }
 
@@ -420,10 +342,7 @@ fun CreateBoxScreen(
                                                         .clip(RoundedCornerShape(8.dp))
                                                         .background(Color(0xFF1A1A1E))
                                                         .clickable {
-                                                            capaSelecionadaUrl = backdropUrl
-                                                            filmeCapaNome = filme.title
-                                                            mostrandoBuscaCapa = false
-                                                            buscaCapa = ""
+                                                            viewModel.onSelectCapa(backdropUrl, filme.title)
                                                         }
                                                 ) {
                                                     AsyncImage(
@@ -477,7 +396,7 @@ fun CreateBoxScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(modifier = Modifier.weight(1f)) {
-                                if (buscaFilme.isEmpty()) {
+                                if (uiState.buscaFilme.isEmpty()) {
                                     Text(
                                         text = "Adicionar Filmes...",
                                         color = Color(0xFF555048),
@@ -485,8 +404,8 @@ fun CreateBoxScreen(
                                     )
                                 }
                                 BasicTextField(
-                                    value = buscaFilme,
-                                    onValueChange = { buscaFilme = it },
+                                    value = uiState.buscaFilme,
+                                    onValueChange = { viewModel.onBuscaFilmeChange(it) },
                                     singleLine = true,
                                     cursorBrush = SolidColor(Color(0xFFFFB82E)),
                                     textStyle = TextStyle(
@@ -496,7 +415,7 @@ fun CreateBoxScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                            if (buscandoFilmes) {
+                            if (uiState.buscandoFilmes) {
                                 CircularProgressIndicator(
                                     color = Color(0xFFFFB82E),
                                     modifier = Modifier.size(16.dp),
@@ -507,7 +426,7 @@ fun CreateBoxScreen(
 
                         // Resultados da busca com animação
                         AnimatedVisibility(
-                            visible = resultadosFilmesBusca.isNotEmpty(),
+                            visible = uiState.resultadosFilmesBusca.isNotEmpty(),
                             enter = expandVertically(),
                             exit = shrinkVertically()
                         ) {
@@ -519,16 +438,14 @@ fun CreateBoxScreen(
                                     .background(Color(0xFF131316))
                                     .border(1.dp, Color(0xFF26262B), RoundedCornerShape(8.dp))
                             ) {
-                                resultadosFilmesBusca.take(5).forEachIndexed { index, filme ->
+                                uiState.resultadosFilmesBusca.take(5).forEachIndexed { index, filme ->
                                     SearchResultItem(
                                         filme = filme,
                                         onAdd = {
-                                            filmesAdicionados.add(filme)
-                                            buscaFilme = ""
-                                            resultadosFilmesBusca = emptyList()
+                                            viewModel.onAddFilme(filme)
                                         }
                                     )
-                                    if (index < resultadosFilmesBusca.take(5).lastIndex) {
+                                    if (index < uiState.resultadosFilmesBusca.take(5).lastIndex) {
                                         Divider(color = Color(0xFF222228), thickness = 0.5.dp)
                                     }
                                 }
@@ -538,7 +455,7 @@ fun CreateBoxScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         // Filmes adicionados ou estado vazio
-                        if (filmesAdicionados.isEmpty()) {
+                        if (uiState.filmesAdicionados.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -570,10 +487,10 @@ fun CreateBoxScreen(
                                 }
                             }
                         } else {
-                            filmesAdicionados.forEach { filme ->
+                            uiState.filmesAdicionados.forEach { filme ->
                                 AddedMovieItem(
                                     filme = filme,
-                                    onRemove = { filmesAdicionados.remove(filme) }
+                                    onRemove = { viewModel.onRemoveFilme(filme) }
                                 )
                                 Divider(color = Color(0xFF1E1E24), thickness = 0.5.dp)
                             }
@@ -603,8 +520,8 @@ fun CreateBoxScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         PrivacidadeSelector(
-                            selecionada = privacidade,
-                            onSelecionar = { privacidade = it }
+                            selecionada = uiState.privacidade,
+                            onSelecionar = { viewModel.onPrivacidadeChange(it) }
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -630,8 +547,8 @@ fun CreateBoxScreen(
                             }
 
                             Switch(
-                                checked = colaborativa,
-                                onCheckedChange = { colaborativa = it },
+                                checked = uiState.colaborativa,
+                                onCheckedChange = { viewModel.onColaborativaChange(it) },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color(0xFFFFB82E),
                                     checkedTrackColor = Color(0xFF382B14),
@@ -651,23 +568,10 @@ fun CreateBoxScreen(
                     .fillMaxWidth()
                     .height(60.dp)
                     .clickable {
-                        if (titulo.isBlank()) {
-                            erroTitulo = true
-                            return@clickable
+                        val newBox = viewModel.createBox()
+                        if (newBox != null) {
+                            onBoxCreated(newBox.id)
                         }
-                        val targetPrivacy = when (privacidade) {
-                            Privacidade.PUBLICA -> BoxPrivacyType.PUBLICA
-                            Privacidade.PRIVADA -> BoxPrivacyType.PRIVADA
-                            Privacidade.COLABORATIVA -> BoxPrivacyType.COLABORATIVA
-                        }
-                        val newBox = BoxDetailRepository.createBox(
-                            title = titulo,
-                            description = descricao,
-                            privacyType = targetPrivacy,
-                            coverUrl = capaSelecionadaUrl,
-                            filmes = filmesAdicionados.toList()
-                        )
-                        onBoxCreated(newBox.id)
                     },
                 color = Color(0xFFFFB82E),
                 shape = RoundedCornerShape(0.dp)
@@ -938,8 +842,8 @@ private fun AddedMovieItem(
 
 @Composable
 private fun PrivacidadeSelector(
-    selecionada: Privacidade,
-    onSelecionar: (Privacidade) -> Unit
+    selecionada: BoxPrivacyType,
+    onSelecionar: (BoxPrivacyType) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -974,7 +878,7 @@ private fun PrivacidadeSelector(
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color(0xFF1A1A1E))
         ) {
-            Privacidade.entries.forEach { opcao ->
+            BoxPrivacyType.entries.forEach { opcao ->
                 DropdownMenuItem(
                     text = {
                         Text(
