@@ -1,5 +1,7 @@
 package com.boxel.meuboxfavorito.data.remote
 
+import com.boxel.meuboxfavorito.models.MovieResponse
+import com.boxel.meuboxfavorito.models.Moviefmt
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query

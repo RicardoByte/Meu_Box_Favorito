@@ -1,71 +1,11 @@
 package com.boxel.meuboxfavorito.data.repository
 
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
-
-enum class BoxPrivacyType(val label: String) {
-    PUBLICA("Pública"),
-    PRIVADA("Privada"),
-    COLABORATIVA("Colaborativa")
-}
-
-enum class TagStyle {
-    HIGHLIGHT,   // Purple (DESTAQUE)
-    TOP,         // Teal (Top Resenha)
-    VIRAL,       // Orange / Red (VIRAL)
-    OPEN,        // Slate (Discussão Aberta)
-    PRIVATE,     // Amber / Gold (NOTA PRIVADA / DIÁRIO)
-    COLLABORATOR // Blue / Indigo (COLABORADOR)
-}
-
-data class RespostaComunidade(
-    val id: Long,
-    val autor: String,
-    val tempoRelativo: String,
-    val conteudo: String,
-    val curtidas: Int,
-    val avatarUrl: String? = null,
-    val curtidoPorMim: Boolean = false
-)
-
-data class BoxReviewItem(
-    val id: Int,
-    val authorName: String,
-    val authorHandle: String,
-    val authorAvatar: String? = null,
-    val timeAgo: String,
-    val tagText: String,
-    val tagStyle: TagStyle,
-    val movieTitle: String,
-    val movieInfo: String,
-    val moviePosterUrl: String? = null,
-    val rating: Float,
-    val title: String,
-    val body: String,
-    val hashtags: List<String> = emptyList(),
-    val likesCount: Int,
-    val commentsCount: Int,
-    val isLiked: Boolean = false,
-    val replies: List<RespostaComunidade> = emptyList()
-)
-
-data class BoxDetailData(
-    val id: Int,
-    val title: String,
-    val creatorName: String,
-    val creatorHandle: String,
-    val creatorAvatar: String? = null,
-    val badgeCuradoria: String,
-    val updatedTime: String,
-    val description: String,
-    val filmesCount: Int,
-    val viewsCount: String,
-    val savesCount: String,
-    val isSaved: Boolean = false,
-    val privacyType: BoxPrivacyType,
-    val coverUrl: String? = null,
-    val filmes: List<Moviefmt> = emptyList(),
-    val reviews: List<BoxReviewItem> = emptyList()
-)
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.BoxReviewItem
+import com.boxel.meuboxfavorito.models.Moviefmt
+import com.boxel.meuboxfavorito.models.RespostaComunidade
+import com.boxel.meuboxfavorito.models.TagStyle
 
 object BoxDetailRepository {
 
@@ -835,6 +775,32 @@ object BoxDetailRepository {
         boxes[3] = boxColaborativa
         boxes[4] = boxTerror
         boxes[5] = boxAnimacao
+
+        // Carrega quaisquer boxes criadas pelo usuário persistidas em disco
+        loadCustomBoxesFromStorage()
+    }
+
+    fun loadCustomBoxesFromStorage() {
+        try {
+            val customBoxes = com.boxel.meuboxfavorito.data.local.LocalStorageManager.getCustomBoxes()
+            customBoxes.forEach { box ->
+                boxes[box.id] = box
+            }
+            notifyBoxesChanged()
+        } catch (e: Exception) {
+            // Em caso de inicialização antes do contexto
+        }
+    }
+
+    private val _boxesFlow = kotlinx.coroutines.flow.MutableStateFlow<List<BoxDetailData>>(emptyList())
+    val boxesFlow: kotlinx.coroutines.flow.StateFlow<List<BoxDetailData>> = _boxesFlow
+
+    init {
+        _boxesFlow.value = boxes.values.toList()
+    }
+
+    private fun notifyBoxesChanged() {
+        _boxesFlow.value = boxes.values.toList()
     }
 
     fun getBoxById(boxId: Int): BoxDetailData {
@@ -862,26 +828,33 @@ object BoxDetailRepository {
         }
         val updatedBox = box.copy(reviews = updatedReviews)
         boxes[boxId] = updatedBox
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.updateCustomBox(updatedBox)
+        notifyBoxesChanged()
         return updatedBox.reviews.firstOrNull { it.id == reviewId }
     }
 
     fun toggleSaveBox(boxId: Int): Boolean {
         val box = boxes[boxId] ?: return false
         val newSaved = !box.isSaved
-        boxes[boxId] = box.copy(isSaved = newSaved)
+        val updatedBox = box.copy(isSaved = newSaved)
+        boxes[boxId] = updatedBox
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.updateCustomBox(updatedBox)
+        notifyBoxesChanged()
         return newSaved
     }
 
     fun addCommentToReview(boxId: Int, reviewId: Int, content: String): RespostaComunidade? {
         val box = boxes[boxId] ?: return null
         val review = box.reviews.firstOrNull { it.id == reviewId } ?: return null
+        val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
 
         val novoComentario = RespostaComunidade(
             id = System.currentTimeMillis(),
-            autor = "Você",
+            autor = currentUser?.nomeCompleto ?: "Você",
             tempoRelativo = "Agora",
             conteudo = content.trim(),
-            curtidas = 0
+            curtidas = 0,
+            avatarUrl = currentUser?.avatarUrl
         )
 
         val updatedReviews = box.reviews.map { r ->
@@ -893,7 +866,10 @@ object BoxDetailRepository {
             } else r
         }
 
-        boxes[boxId] = box.copy(reviews = updatedReviews)
+        val updatedBox = box.copy(reviews = updatedReviews)
+        boxes[boxId] = updatedBox
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.updateCustomBox(updatedBox)
+        notifyBoxesChanged()
         return novoComentario
     }
 
@@ -904,13 +880,18 @@ object BoxDetailRepository {
         coverUrl: String? = null,
         filmes: List<Moviefmt> = emptyList()
     ): BoxDetailData {
+        val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
+        val creatorName = currentUser?.nomeCompleto ?: "Você"
+        val creatorHandle = "@${currentUser?.nomeUsuario ?: "ricardobyte"}"
+        val creatorAvatar = currentUser?.avatarUrl
+
         val newId = (boxes.keys.maxOrNull() ?: 5) + 1
         val newBox = BoxDetailData(
             id = newId,
             title = title.trim(),
-            creatorName = "Você",
-            creatorHandle = "@ricardobyte",
-            creatorAvatar = null,
+            creatorName = creatorName,
+            creatorHandle = creatorHandle,
+            creatorAvatar = creatorAvatar,
             badgeCuradoria = "Sua Curadoria",
             updatedTime = "Criada por você agora há pouco.",
             description = description.ifBlank { "Coleção dedicada a obras que desafiam a percepção e exploram a mente humana. Criada por você agora há pouco." },
@@ -924,12 +905,23 @@ object BoxDetailRepository {
             reviews = emptyList()
         )
         boxes[newId] = newBox
+
+        // Persiste a nova Box no armazenamento do dispositivo
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.saveCustomBox(newBox)
+        notifyBoxesChanged()
         return newBox
     }
 
     fun getUserBoxes(): List<BoxDetailData> {
+        val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
+        val userHandle = "@${currentUser?.nomeUsuario ?: "ricardobyte"}"
+        val userName = currentUser?.nomeCompleto ?: "Você"
+
         return boxes.values.filter {
-            it.creatorHandle == "@ricardobyte" || it.creatorName == "Você"
+            it.creatorHandle.equals(userHandle, ignoreCase = true) ||
+            it.creatorHandle == "@ricardobyte" ||
+            it.creatorName == userName ||
+            it.creatorName == "Você"
         }.reversed()
     }
 
@@ -947,6 +939,11 @@ object BoxDetailRepository {
         hasSpoilers: Boolean = false
     ): BoxReviewItem {
         val box = getBoxById(boxId)
+        val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
+        val authorName = currentUser?.nomeCompleto ?: "Você"
+        val authorHandle = "@${currentUser?.nomeUsuario ?: "ricardobyte"}"
+        val authorAvatar = currentUser?.avatarUrl
+
         val newReviewId = (box.reviews.maxOfOrNull { it.id } ?: (boxId * 100)) + 1
         val tagText = when {
             isObraPrima -> "OBRA-PRIMA"
@@ -961,9 +958,9 @@ object BoxDetailRepository {
         }
         val newReview = BoxReviewItem(
             id = newReviewId,
-            authorName = "Você",
-            authorHandle = "@ricardobyte",
-            authorAvatar = null,
+            authorName = authorName,
+            authorHandle = authorHandle,
+            authorAvatar = authorAvatar,
             timeAgo = "Agora",
             tagText = tagText,
             tagStyle = tagStyle,
@@ -996,6 +993,8 @@ object BoxDetailRepository {
             filmesCount = updatedFilmes.size
         )
         boxes[boxId] = updatedBox
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.updateCustomBox(updatedBox)
+        notifyBoxesChanged()
         return newReview
     }
 }

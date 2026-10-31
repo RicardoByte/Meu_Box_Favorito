@@ -1,5 +1,9 @@
 package com.boxel.meuboxfavorito.ui.screen.auth
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,12 +28,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -47,11 +48,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,38 +64,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.boxel.meuboxfavorito.ui.view.RegisterViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RegisterScreen(
     onBack: () -> Unit,
     onRegisterSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    viewModel: RegisterViewModel = viewModel()
 ) {
-    var nomeCompleto by remember { mutableStateOf("") }
-    var nomeUsuario by remember { mutableStateOf("cinemaniaco") }
-    var email by remember { mutableStateOf("") }
-    var senha by remember { mutableStateOf("") }
-    var senhaVisivel by remember { mutableStateOf(false) }
-    var confirmarSenha by remember { mutableStateOf("") }
-    var termosAceitos by remember { mutableStateOf(true) }
+    val state by viewModel.uiState.collectAsState()
 
     val todosGeneros = listOf(
-        "Ficção Científica",
-        "Noir",
-        "Cult",
-        "Terror",
-        "Drama",
-        "Clássicos",
-        "Cinema de Autor"
+        "Ficção Científica", "Noir", "Cult", "Terror",
+        "Drama", "Clássicos", "Cinema de Autor"
     )
-    val generosSelecionados = remember {
-        mutableStateListOf("Noir", "Terror")
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -119,9 +105,7 @@ fun RegisterScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // ─── Hero Header Card ─────────────────────────────
-                item {
-                    RegisterHeroCard()
-                }
+                item { RegisterHeroCard() }
 
                 // ─── Nome Completo ────────────────────────────────
                 item {
@@ -131,11 +115,13 @@ fun RegisterScreen(
                         badgeColor = Color(0xFFC8A97E)
                     ) {
                         CustomTextInput(
-                            value = nomeCompleto,
-                            onValueChange = { nomeCompleto = it },
+                            value = state.nomeCompleto,
+                            onValueChange = viewModel::onNomeCompletoChange,
                             placeholder = "Ex: Arthur Fleck",
-                            leadingIcon = Icons.Outlined.Person
+                            leadingIcon = Icons.Outlined.Person,
+                            hasError = state.nomeCompletoErro != null
                         )
+                        FieldError(message = state.nomeCompletoErro)
                     }
                 }
 
@@ -143,61 +129,65 @@ fun RegisterScreen(
                 item {
                     FormField(
                         label = "NOME DE USUÁRIO",
-                        badge = "✓ Disponível",
+                        badge = if (state.nomeUsuarioErro == null && state.nomeUsuario.isNotBlank())
+                            "✓ Disponível" else null,
                         badgeColor = Color(0xFF4EBA75)
                     ) {
                         CustomTextInput(
-                            value = nomeUsuario,
-                            onValueChange = { nomeUsuario = it },
+                            value = state.nomeUsuario,
+                            onValueChange = viewModel::onNomeUsuarioChange,
                             placeholder = "cinemaniaco",
                             prefix = "@",
+                            hasError = state.nomeUsuarioErro != null,
                             trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Disponível",
-                                    tint = Color(0xFF4EBA75),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                if (state.nomeUsuarioErro == null && state.nomeUsuario.isNotBlank()) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Disponível",
+                                        tint = Color(0xFF4EBA75),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         )
+                        FieldError(message = state.nomeUsuarioErro)
                     }
                 }
 
                 // ─── E-mail ───────────────────────────────────────
                 item {
-                    FormField(
-                        label = "E-MAIL",
-                        badgeColor = Color(0xFF8C8376)
-                    ) {
+                    FormField(label = "E-MAIL", badgeColor = Color(0xFF8C8376)) {
                         CustomTextInput(
-                            value = email,
-                            onValueChange = { email = it },
+                            value = state.email,
+                            onValueChange = viewModel::onEmailChange,
                             placeholder = "curador@cinema.com",
                             leadingIcon = Icons.Outlined.Email,
-                            keyboardType = KeyboardType.Email
+                            keyboardType = KeyboardType.Email,
+                            hasError = state.emailErro != null
                         )
+                        FieldError(message = state.emailErro)
                     }
                 }
 
                 // ─── Senha ────────────────────────────────────────
                 item {
-                    FormField(
-                        label = "SENHA",
-                        badgeColor = Color(0xFF8C8376)
-                    ) {
+                    FormField(label = "SENHA", badgeColor = Color(0xFF8C8376)) {
                         CustomTextInput(
-                            value = senha,
-                            onValueChange = { senha = it },
+                            value = state.senha,
+                            onValueChange = viewModel::onSenhaChange,
                             placeholder = "Mínimo 8 caracteres",
                             leadingIcon = Icons.Outlined.Lock,
-                            visualTransformation = if (senhaVisivel) VisualTransformation.None else PasswordVisualTransformation(),
+                            hasError = state.senhaErro != null,
+                            visualTransformation = if (state.senhaVisivel)
+                                VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
                                 IconButton(
-                                    onClick = { senhaVisivel = !senhaVisivel },
+                                    onClick = viewModel::onToggleSenhaVisivel,
                                     modifier = Modifier.size(24.dp)
                                 ) {
                                     Icon(
-                                        imageVector = if (senhaVisivel) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        imageVector = if (state.senhaVisivel)
+                                            Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                         contentDescription = "Mostrar senha",
                                         tint = Color(0xFF8C8376),
                                         modifier = Modifier.size(18.dp)
@@ -205,70 +195,27 @@ fun RegisterScreen(
                                 }
                             }
                         )
+                        FieldError(message = state.senhaErro)
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Barra de força da senha
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "SEGURANÇA DA SENHA",
-                                color = Color(0xFF8C8376),
-                                style = MaterialTheme.typography.labelSmall,
-                                letterSpacing = 1.sp,
-                                fontSize = 10.sp
-                            )
-                            Text(
-                                text = "Forte",
-                                color = Color(0xFFFFB82E),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            repeat(3) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(Color(0xFFFFB82E))
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color(0xFF26262B))
-                            )
-                        }
+                        // ─── Barra de força da senha (dinâmica) ───
+                        PasswordStrengthBar(forca = state.forca)
                     }
                 }
 
                 // ─── Confirmar Senha ──────────────────────────────
                 item {
-                    FormField(
-                        label = "CONFIRMAR SENHA",
-                        badgeColor = Color(0xFF8C8376)
-                    ) {
+                    FormField(label = "CONFIRMAR SENHA", badgeColor = Color(0xFF8C8376)) {
                         CustomTextInput(
-                            value = confirmarSenha,
-                            onValueChange = { confirmarSenha = it },
+                            value = state.confirmarSenha,
+                            onValueChange = viewModel::onConfirmarSenhaChange,
                             placeholder = "Repita sua senha",
                             leadingIcon = Icons.Outlined.Check,
+                            hasError = state.confirmarSenhaErro != null,
                             visualTransformation = PasswordVisualTransformation()
                         )
+                        FieldError(message = state.confirmarSenhaErro)
                     }
                 }
 
@@ -312,17 +259,10 @@ fun RegisterScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             todosGeneros.forEach { genero ->
-                                val selecionado = generosSelecionados.contains(genero)
                                 GenreChip(
                                     label = genero,
-                                    selected = selecionado,
-                                    onToggle = {
-                                        if (selecionado) {
-                                            generosSelecionados.remove(genero)
-                                        } else {
-                                            generosSelecionados.add(genero)
-                                        }
-                                    }
+                                    selected = state.generosFavoritos.contains(genero),
+                                    onToggle = { viewModel.onToggleGenero(genero) }
                                 )
                             }
                         }
@@ -331,51 +271,59 @@ fun RegisterScreen(
 
                 // ─── Termos e Condições ───────────────────────────
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { termosAceitos = !termosAceitos }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = termosAceitos,
-                            onCheckedChange = { termosAceitos = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFFFFB82E),
-                                checkmarkColor = Color(0xFF14120E),
-                                uncheckedColor = Color(0xFF5E5A52)
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.onTermosChange(!state.termosAceitos) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = state.termosAceitos,
+                                onCheckedChange = viewModel::onTermosChange,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = Color(0xFFFFB82E),
+                                    checkmarkColor = Color(0xFF14120E),
+                                    uncheckedColor = if (state.termosErro != null)
+                                        Color(0xFFE05C5C) else Color(0xFF5E5A52)
+                                )
                             )
-                        )
 
-                        Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
 
-                        val termsText = buildAnnotatedString {
-                            append("Li e concordo com os ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFFEDE7DE))) {
-                                append("Termos de Uso")
+                            val termsText = buildAnnotatedString {
+                                append("Li e concordo com os ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFFEDE7DE))) {
+                                    append("Termos de Uso")
+                                }
+                                append(" e com a ")
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFFEDE7DE))) {
+                                    append("Política de Privacidade")
+                                }
+                                append(" do Meu Box Favorito.")
                             }
-                            append(" e com a ")
-                            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFFEDE7DE))) {
-                                append("Política de Privacidade")
-                            }
-                            append(" do Meu Box Favorito.")
+
+                            Text(
+                                text = termsText,
+                                color = Color(0xFF9E988F),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
                         }
-
-                        Text(
-                            text = termsText,
-                            color = Color(0xFF9E988F),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
+                        FieldError(message = state.termosErro)
                     }
                 }
 
                 // ─── Botão Concluir Cadastro ──────────────────────
                 item {
                     Button(
-                        onClick = onRegisterSuccess,
+                        onClick = {
+                            if (viewModel.onSubmit()) {
+                                onRegisterSuccess()
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -462,6 +410,80 @@ fun RegisterScreen(
     }
 }
 
+// ─── Componente: Mensagem de erro de campo ────────────────────────────────────
+@Composable
+private fun FieldError(message: String?) {
+    AnimatedVisibility(
+        visible = message != null,
+        enter = fadeIn() + slideInVertically { -it / 2 },
+        exit = fadeOut()
+    ) {
+        if (message != null) {
+            Text(
+                text = message,
+                color = Color(0xFFE05C5C),
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(start = 2.dp, top = 4.dp)
+            )
+        }
+    }
+}
+
+// ─── Componente: Barra de força da senha ─────────────────────────────────────
+@Composable
+private fun PasswordStrengthBar(forca: ForcaSenha) {
+    if (forca == ForcaSenha.VAZIA) return
+
+    val corForca = when (forca) {
+        ForcaSenha.FRACA -> Color(0xFFE05C5C)
+        ForcaSenha.MEDIA -> Color(0xFFFFB82E)
+        ForcaSenha.FORTE -> Color(0xFF4EBA75)
+        ForcaSenha.MUITO_FORTE -> Color(0xFF3DD68C)
+        else -> Color(0xFF26262B)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "SEGURANÇA DA SENHA",
+            color = Color(0xFF8C8376),
+            style = MaterialTheme.typography.labelSmall,
+            letterSpacing = 1.sp,
+            fontSize = 10.sp
+        )
+        Text(
+            text = forca.rotulo,
+            color = corForca,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp
+        )
+    }
+
+    Spacer(modifier = Modifier.height(6.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        repeat(4) { index ->
+            val ativo = index < forca.nivel
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (ativo) corForca else Color(0xFF26262B))
+            )
+        }
+    }
+}
+
+// ─── Top Bar ──────────────────────────────────────────────────────────────────
 @Composable
 private fun RegisterTopBar(onBack: () -> Unit) {
     Row(
@@ -486,7 +508,6 @@ private fun RegisterTopBar(onBack: () -> Unit) {
             modifier = Modifier.weight(1f)
         )
 
-        // Avatar ícone circular
         Box(
             modifier = Modifier
                 .padding(end = 8.dp)
@@ -506,6 +527,7 @@ private fun RegisterTopBar(onBack: () -> Unit) {
     }
 }
 
+// ─── Hero Card ────────────────────────────────────────────────────────────────
 @Composable
 private fun RegisterHeroCard() {
     Box(
@@ -514,25 +536,14 @@ private fun RegisterHeroCard() {
             .clip(RoundedCornerShape(16.dp))
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF231B2D),
-                        Color(0xFF151419)
-                    )
+                    colors = listOf(Color(0xFF231B2D), Color(0xFF151419))
                 )
             )
-            .border(
-                width = 1.dp,
-                color = Color(0xFF332A42),
-                shape = RoundedCornerShape(16.dp)
-            )
+            .border(1.dp, Color(0xFF332A42), RoundedCornerShape(16.dp))
             .padding(20.dp)
     ) {
         Column {
-            // Badge OBSIDIAN CINEMA
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF2B2138)
-            ) {
+            Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF2B2138)) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -573,6 +584,7 @@ private fun RegisterHeroCard() {
     }
 }
 
+// ─── Form Field wrapper ───────────────────────────────────────────────────────
 @Composable
 private fun FormField(
     label: String,
@@ -611,6 +623,7 @@ private fun FormField(
     }
 }
 
+// ─── Custom Text Input ────────────────────────────────────────────────────────
 @Composable
 private fun CustomTextInput(
     value: String,
@@ -618,17 +631,23 @@ private fun CustomTextInput(
     placeholder: String,
     leadingIcon: ImageVector? = null,
     prefix: String? = null,
+    hasError: Boolean = false,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardType: KeyboardType = KeyboardType.Text,
     trailingIcon: (@Composable () -> Unit)? = null
 ) {
+    val borderColor = when {
+        hasError -> Color(0xFFE05C5C)
+        else -> Color(0xFF26252B)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF141316))
-            .border(1.dp, Color(0xFF26252B), RoundedCornerShape(10.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -636,7 +655,7 @@ private fun CustomTextInput(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = Color(0xFF7A7368),
+                tint = if (hasError) Color(0xFFE05C5C) else Color(0xFF7A7368),
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -654,11 +673,7 @@ private fun CustomTextInput(
 
         Box(modifier = Modifier.weight(1f)) {
             if (value.isEmpty()) {
-                Text(
-                    text = placeholder,
-                    color = Color(0xFF555048),
-                    fontSize = 14.sp
-                )
+                Text(text = placeholder, color = Color(0xFF555048), fontSize = 14.sp)
             }
             BasicTextField(
                 value = value,
@@ -668,10 +683,7 @@ private fun CustomTextInput(
                 visualTransformation = visualTransformation,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                 cursorBrush = SolidColor(Color(0xFFFFB82E)),
-                textStyle = TextStyle(
-                    color = Color(0xFFEDE7DE),
-                    fontSize = 14.sp
-                )
+                textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 14.sp)
             )
         }
 
@@ -682,17 +694,16 @@ private fun CustomTextInput(
     }
 }
 
+// ─── Genre Chip ───────────────────────────────────────────────────────────────
 @Composable
-private fun GenreChip(
-    label: String,
-    selected: Boolean,
-    onToggle: () -> Unit
-) {
+private fun GenreChip(label: String, selected: Boolean, onToggle: () -> Unit) {
     Surface(
         modifier = Modifier.clickable { onToggle() },
         shape = RoundedCornerShape(20.dp),
         color = if (selected) Color(0xFF5B22D4) else Color(0xFF1A1A1E),
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2C32))
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(
+            1.dp, Color(0xFF2C2C32)
+        )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),

@@ -53,16 +53,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.boxel.meuboxfavorito.ui.view.AuthViewModel
 
 @Composable
 fun AuthScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onExploreWithoutAccount: () -> Unit
+    onExploreWithoutAccount: () -> Unit,
+    viewModel: AuthViewModel = viewModel()
 ) {
-    var emailOuUsuario by remember { mutableStateOf("") }
-    var senha by remember { mutableStateOf("") }
-    var erroLogin by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
 
     Box(
         modifier = Modifier
@@ -255,7 +257,7 @@ fun AuthScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Box(modifier = Modifier.weight(1f)) {
-                                if (emailOuUsuario.isEmpty()) {
+                                if (uiState.emailOuUsuario.isEmpty()) {
                                     Text(
                                         text = "seu@email.com",
                                         color = Color(0xFF4A463F),
@@ -263,11 +265,8 @@ fun AuthScreen(
                                     )
                                 }
                                 BasicTextField(
-                                    value = emailOuUsuario,
-                                    onValueChange = {
-                                        emailOuUsuario = it
-                                        erroLogin = false
-                                    },
+                                    value = uiState.emailOuUsuario,
+                                    onValueChange = viewModel::onEmailOuUsuarioChange,
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
                                     cursorBrush = SolidColor(Color(0xFFFFB82E)),
@@ -322,7 +321,7 @@ fun AuthScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Box(modifier = Modifier.weight(1f)) {
-                                if (senha.isEmpty()) {
+                                if (uiState.senha.isEmpty()) {
                                     Text(
                                         text = "••••••••",
                                         color = Color(0xFF4A463F),
@@ -330,11 +329,8 @@ fun AuthScreen(
                                     )
                                 }
                                 BasicTextField(
-                                    value = senha,
-                                    onValueChange = {
-                                        senha = it
-                                        erroLogin = false
-                                    },
+                                    value = uiState.senha,
+                                    onValueChange = viewModel::onSenhaChange,
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(),
@@ -350,12 +346,12 @@ fun AuthScreen(
                     }
 
                     AnimatedVisibility(
-                        visible = erroLogin,
+                        visible = uiState.errorMessage != null,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
                         Text(
-                            text = "Por favor, preencha seu e-mail e senha.",
+                            text = uiState.errorMessage ?: "",
                             color = Color(0xFFE05C5C),
                             style = MaterialTheme.typography.labelSmall
                         )
@@ -367,11 +363,7 @@ fun AuthScreen(
                             .fillMaxWidth()
                             .height(48.dp)
                             .clickable {
-                                if (emailOuUsuario.isBlank() || senha.isBlank()) {
-                                    erroLogin = true
-                                } else {
-                                    onLoginSuccess()
-                                }
+                                viewModel.login(onSuccess = onLoginSuccess)
                             },
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFF25252B),

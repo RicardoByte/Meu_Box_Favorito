@@ -57,34 +57,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
-import com.boxel.meuboxfavorito.data.repository.BoxReviewItem
-import com.boxel.meuboxfavorito.data.repository.RespostaComunidade
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.BoxReviewItem
+import com.boxel.meuboxfavorito.models.RespostaComunidade
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
+import com.boxel.meuboxfavorito.ui.view.DiscussionViewModel
 
 @Composable
 fun DiscussionScreen(
     boxId: Int,
     reviewId: Int = 101,
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    viewModel: DiscussionViewModel = viewModel()
 ) {
-    val boxData = remember(boxId) { BoxDetailRepository.getBoxById(boxId) }
-    val initialReview = remember(boxId, reviewId) {
-        BoxDetailRepository.getReviewById(boxId, reviewId) ?: boxData.reviews.first()
+    LaunchedEffect(boxId, reviewId) {
+        viewModel.loadDiscussion(boxId, reviewId)
     }
 
-    var review by remember(initialReview) { mutableStateOf(initialReview) }
-    var curtido by remember(review) { mutableStateOf(review.isLiked) }
-    var curtidasCount by remember(review) { mutableIntStateOf(review.likesCount) }
-    var novoComentarioTexto by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsState()
+    val review = uiState.review
+    val boxData = uiState.boxData
 
-    val comentarios = remember(review) {
-        mutableStateListOf<RespostaComunidade>().apply {
-            addAll(review.replies)
+    if (review == null || boxData == null) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF0F0F11)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("Carregando discussão...", color = Color(0xFFC8A97E))
+            }
         }
+        return
     }
 
     Surface(
@@ -148,13 +157,11 @@ fun DiscussionScreen(
                 item {
                     ReviewDetailOwnerCard(
                         review = review,
-                        curtido = curtido,
-                        curtidasCount = curtidasCount,
-                        comentariosCount = comentarios.size,
+                        curtido = uiState.curtido,
+                        curtidasCount = uiState.curtidasCount,
+                        comentariosCount = uiState.comentarios.size,
                         onCurtir = {
-                            curtido = !curtido
-                            curtidasCount = if (curtido) curtidasCount + 1 else curtidasCount - 1
-                            BoxDetailRepository.toggleLikeReview(boxId, review.id)
+                            viewModel.toggleLike()
                         }
                     )
                 }
@@ -187,7 +194,7 @@ fun DiscussionScreen(
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Text(
-                            text = "${comentarios.size} respostas",
+                            text = "${uiState.comentarios.size} respostas",
                             color = Color(0xFF8C867C),
                             fontSize = 12.sp
                         )
@@ -230,7 +237,7 @@ fun DiscussionScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
-                                if (novoComentarioTexto.isEmpty()) {
+                                if (uiState.novoComentarioTexto.isEmpty()) {
                                     Text(
                                         text = if (boxData.privacyType == BoxPrivacyType.PRIVADA) {
                                             "Adicionar nota pessoal..."
@@ -242,8 +249,8 @@ fun DiscussionScreen(
                                     )
                                 }
                                 BasicTextField(
-                                    value = novoComentarioTexto,
-                                    onValueChange = { novoComentarioTexto = it },
+                                    value = uiState.novoComentarioTexto,
+                                    onValueChange = { viewModel.onNovoComentarioChange(it) },
                                     singleLine = true,
                                     cursorBrush = SolidColor(Color(0xFFFFB82E)),
                                     textStyle = TextStyle(
@@ -258,24 +265,14 @@ fun DiscussionScreen(
 
                             IconButton(
                                 onClick = {
-                                    if (novoComentarioTexto.isNotBlank()) {
-                                        val novo = BoxDetailRepository.addCommentToReview(
-                                            boxId = boxId,
-                                            reviewId = review.id,
-                                            content = novoComentarioTexto
-                                        )
-                                        if (novo != null) {
-                                            comentarios.add(0, novo)
-                                        }
-                                        novoComentarioTexto = ""
-                                    }
+                                    viewModel.sendComment()
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = "Enviar",
-                                    tint = if (novoComentarioTexto.isNotBlank()) Color(0xFFFFB82E) else Color(0xFF6E685E),
+                                    tint = if (uiState.novoComentarioTexto.isNotBlank()) Color(0xFFFFB82E) else Color(0xFF6E685E),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -284,7 +281,7 @@ fun DiscussionScreen(
                 }
 
                 // ─── Comentários e Respostas ───────────────────────
-                if (comentarios.isEmpty()) {
+                if (uiState.comentarios.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -300,7 +297,7 @@ fun DiscussionScreen(
                         }
                     }
                 } else {
-                    items(comentarios, key = { it.id }) { comentario ->
+                    items(uiState.comentarios, key = { it.id }) { comentario ->
                         CommunityCommentCard(comentario = comentario)
                     }
                 }

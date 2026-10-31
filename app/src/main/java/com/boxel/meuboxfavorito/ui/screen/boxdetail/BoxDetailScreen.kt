@@ -57,14 +57,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.data.repository.BoxDetailData
-import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.BoxPrivacyType
-import com.boxel.meuboxfavorito.data.repository.BoxReviewItem
-import com.boxel.meuboxfavorito.data.repository.TagStyle
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.BoxPrivacyType
+import com.boxel.meuboxfavorito.models.BoxReviewItem
+import com.boxel.meuboxfavorito.models.TagStyle
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
+import com.boxel.meuboxfavorito.ui.view.BoxDetailViewModel
 
 @Composable
 fun BoxDetailScreen(
@@ -72,14 +75,27 @@ fun BoxDetailScreen(
     onBack: () -> Unit,
     onMovieClick: (Int) -> Unit = {},
     onDiscussionClick: (reviewId: Int) -> Unit = {},
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    viewModel: BoxDetailViewModel = viewModel()
 ) {
-    var currentBoxId by remember(boxId) { mutableIntStateOf(boxId) }
-    var boxData by remember(currentBoxId) {
-        mutableStateOf(BoxDetailRepository.getBoxById(currentBoxId))
+    LaunchedEffect(boxId) {
+        viewModel.loadBox(boxId)
     }
-    var isSaved by remember(boxData) { mutableStateOf(boxData.isSaved) }
-    var selectedFilter by remember { mutableStateOf("Mais Relevantes") }
+
+    val uiState by viewModel.uiState.collectAsState()
+    val boxData = uiState.boxData
+
+    if (boxData == null) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF0F0F11)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("Carregando Box...", color = Color(0xFFC8A97E))
+            }
+        }
+        return
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -95,11 +111,9 @@ fun BoxDetailScreen(
 
             // ─── Seletor de Demonstração (Pública, Privada, Colaborativa) ─
             BoxTypeDemoSelector(
-                currentBoxId = currentBoxId,
+                currentBoxId = uiState.boxId,
                 onSelectBox = { selectedId ->
-                    currentBoxId = selectedId
-                    boxData = BoxDetailRepository.getBoxById(selectedId)
-                    isSaved = boxData.isSaved
+                    viewModel.loadBox(selectedId)
                 }
             )
 
@@ -116,10 +130,9 @@ fun BoxDetailScreen(
                 item {
                     BoxHeaderSection(
                         box = boxData,
-                        isSaved = isSaved,
+                        isSaved = uiState.isSaved,
                         onToggleSave = {
-                            isSaved = !isSaved
-                            BoxDetailRepository.toggleSaveBox(boxData.id)
+                            viewModel.toggleSave()
                         }
                     )
                 }
@@ -133,8 +146,8 @@ fun BoxDetailScreen(
                 item {
                     ResenhasSectionHeader(
                         totalReviews = boxData.reviews.size,
-                        selectedFilter = selectedFilter,
-                        onSelectFilter = { selectedFilter = it }
+                        selectedFilter = uiState.selectedFilter,
+                        onSelectFilter = { viewModel.onFilterChange(it) }
                     )
                 }
 
@@ -146,10 +159,7 @@ fun BoxDetailScreen(
                     ReviewCard(
                         review = review,
                         onLikeClick = {
-                            val updated = BoxDetailRepository.toggleLikeReview(boxData.id, review.id)
-                            if (updated != null) {
-                                boxData = BoxDetailRepository.getBoxById(boxData.id)
-                            }
+                            viewModel.toggleLikeReview(review.id)
                         },
                         onParticiparClick = {
                             onDiscussionClick(review.id)

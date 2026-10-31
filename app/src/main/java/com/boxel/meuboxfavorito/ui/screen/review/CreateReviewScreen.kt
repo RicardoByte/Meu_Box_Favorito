@@ -72,110 +72,37 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.boxel.meuboxfavorito.BuildConfig
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
-import com.boxel.meuboxfavorito.data.repository.BoxDetailData
-import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
-import com.boxel.meuboxfavorito.data.repository.MovieRepository
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-
-private data class ReviewMovieSelection(
-    val title: String,
-    val director: String,
-    val duration: String,
-    val year: String,
-    val posterUrl: String,
-    val genres: List<String>
-)
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.Moviefmt
+import com.boxel.meuboxfavorito.models.ReviewMovieSelection
+import com.boxel.meuboxfavorito.ui.view.CreateReviewViewModel
 
 @Composable
 fun CreateReviewScreen(
     initialBoxId: Int,
     onBack: () -> Unit,
-    onReviewPublished: (boxId: Int) -> Unit
+    onReviewPublished: (boxId: Int) -> Unit,
+    viewModel: CreateReviewViewModel = viewModel()
 ) {
-    val allBoxes = remember { BoxDetailRepository.getAllBoxes() }
-    var selectedBox by remember {
-        mutableStateOf(BoxDetailRepository.getBoxById(initialBoxId))
+    LaunchedEffect(initialBoxId) {
+        viewModel.initialize(initialBoxId)
     }
+
+    val uiState by viewModel.uiState.collectAsState()
     var boxDropdownExpanded by remember { mutableStateOf(false) }
-
-    // Filme selecionado (default: Seven se nada na box, ou primeiro da box)
-    val defaultMovie = remember(selectedBox) {
-        val firstInBox = selectedBox.filmes.firstOrNull()
-        if (firstInBox != null) {
-            ReviewMovieSelection(
-                title = firstInBox.title,
-                director = "Direção Especializada",
-                duration = "2h 05m",
-                year = firstInBox.release_date?.take(4) ?: "2024",
-                posterUrl = firstInBox.poster_path?.let {
-                    if (it.startsWith("http")) it else "https://image.tmdb.org/t/p/w500$it"
-                } ?: "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVUO.jpg",
-                genres = listOf("Suspense", "Cinema")
-            )
-        } else {
-            ReviewMovieSelection(
-                title = "Seven: Os Sete Crimes Capitais",
-                director = "Dir. David Fincher",
-                duration = "2h 07m",
-                year = "1995",
-                posterUrl = "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVUO.jpg",
-                genres = listOf("Neo-Noir", "Crime")
-            )
-        }
-    }
-
-    var selectedMovie by remember { mutableStateOf(defaultMovie) }
-    var showMovieSearchDialog by remember { mutableStateOf(false) }
-
-    // Veredito & Classificação
-    var rating by remember { mutableFloatStateOf(4.5f) }
-    var isObraPrima by remember { mutableStateOf(false) }
-    var isFavorito by remember { mutableStateOf(true) }
-
-    // Tese do Debate
-    var debateTitle by remember {
-        mutableStateOf("O final de Seven ainda é insuperável no cinema")
-    }
-
-    // Análise Crítica
-    var analysisText by remember {
-        mutableStateOf("Fincher constrói uma atmosfera asfixiante onde a chuva nunca cessa e a moralidade é testada até o último segundo. John Doe não busca apenas chocar, ele orquestra um sermão definitivo sobre a apatia coletiva dos anos 90. A montagem de som nas cenas dos assassinatos é quase tátil, e o clímax no deserto ressoa para sempre.")
-    }
-
-    var hasSpoilers by remember { mutableStateOf(true) }
-    val hashtags = remember {
-        mutableStateListOf("#Thriller", "#DavidFincher", "#CinemaNoir")
-    }
-    var newTagInput by remember { mutableStateOf("") }
     var showAddTagField by remember { mutableStateOf(false) }
-
-    // Configurações do Debate
     var subtopicosEnabled by remember { mutableStateOf(true) }
     var visibilidadeExpanded by remember { mutableStateOf(false) }
     var visibilidadeSelecionada by remember { mutableStateOf("Público na Box e Feed") }
 
     fun publicar() {
-        if (debateTitle.isBlank() || analysisText.isBlank()) return
-
-        BoxDetailRepository.addReview(
-            boxId = selectedBox.id,
-            movieTitle = selectedMovie.title,
-            movieInfo = "${selectedMovie.year} • ${selectedMovie.genres.joinToString(" / ")}",
-            moviePosterUrl = selectedMovie.posterUrl,
-            rating = rating,
-            title = debateTitle.trim(),
-            body = analysisText.trim(),
-            hashtags = hashtags.toList(),
-            isObraPrima = isObraPrima,
-            isFavorito = isFavorito,
-            hasSpoilers = hasSpoilers
-        )
-
-        onReviewPublished(selectedBox.id)
+        val publishedBoxId = viewModel.publishReview()
+        if (publishedBoxId != null) {
+            onReviewPublished(publishedBoxId)
+        }
     }
 
     Surface(
@@ -203,12 +130,24 @@ fun CreateReviewScreen(
                 // ─── 1. Box de Destino ────────────────────────────────
                 item {
                     DestinationBoxCard(
-                        box = selectedBox,
-                        allBoxes = allBoxes,
+                        box = uiState.selectedBox ?: BoxDetailData(
+                            id = 1,
+                            title = "Noir Essentials",
+                            creatorName = "Você",
+                            creatorHandle = "@voce",
+                            badgeCuradoria = "CURADORIA OFICIAL",
+                            updatedTime = "agora",
+                            description = "",
+                            filmesCount = 0,
+                            viewsCount = "0",
+                            savesCount = "0",
+                            privacyType = com.boxel.meuboxfavorito.models.BoxPrivacyType.PUBLICA
+                        ),
+                        allBoxes = uiState.allBoxes,
                         expanded = boxDropdownExpanded,
                         onExpandedChange = { boxDropdownExpanded = it },
                         onSelectBox = {
-                            selectedBox = it
+                            viewModel.onSelectBox(it)
                             boxDropdownExpanded = false
                         }
                     )
@@ -217,51 +156,47 @@ fun CreateReviewScreen(
                 // ─── 2. Filme Selecionado ─────────────────────────────
                 item {
                     SelectedMovieCard(
-                        movie = selectedMovie,
-                        onChangeMovie = { showMovieSearchDialog = true }
+                        movie = uiState.selectedMovie,
+                        onChangeMovie = { viewModel.setShowMovieSearchDialog(true) }
                     )
                 }
 
                 // ─── 3. Veredito & Classificação ──────────────────────
                 item {
                     VerdictRatingCard(
-                        rating = rating,
-                        onRatingChange = { rating = it },
-                        isObraPrima = isObraPrima,
-                        onToggleObraPrima = { isObraPrima = !isObraPrima },
-                        isFavorito = isFavorito,
-                        onToggleFavorito = { isFavorito = !isFavorito }
+                        rating = uiState.rating,
+                        onRatingChange = { viewModel.onRatingChange(it) },
+                        isObraPrima = uiState.isObraPrima,
+                        onToggleObraPrima = { viewModel.toggleObraPrima() },
+                        isFavorito = uiState.isFavorito,
+                        onToggleFavorito = { viewModel.toggleFavorito() }
                     )
                 }
 
                 // ─── 4. Tese do Debate • Título Provocativo ──────────
                 item {
                     DebateTitleSection(
-                        title = debateTitle,
-                        onTitleChange = { debateTitle = it }
+                        title = uiState.debateTitle,
+                        onTitleChange = { viewModel.onDebateTitleChange(it) }
                     )
                 }
 
                 // ─── 5. Sua Análise Crítica ───────────────────────────
                 item {
                     AnalysisSection(
-                        text = analysisText,
-                        onTextChange = { analysisText = it },
-                        hasSpoilers = hasSpoilers,
-                        onToggleSpoilers = { hasSpoilers = !hasSpoilers },
-                        hashtags = hashtags,
-                        onRemoveTag = { hashtags.remove(it) },
-                        newTagInput = newTagInput,
-                        onNewTagChange = { newTagInput = it },
+                        text = uiState.analysisText,
+                        onTextChange = { viewModel.onAnalysisTextChange(it) },
+                        hasSpoilers = uiState.hasSpoilers,
+                        onToggleSpoilers = { viewModel.toggleSpoilers() },
+                        hashtags = uiState.hashtags,
+                        onRemoveTag = { viewModel.removeTag(it) },
+                        newTagInput = uiState.currentTagInput,
+                        onNewTagChange = { viewModel.onTagInputChange(it) },
                         showAddTagField = showAddTagField,
                         onToggleAddTag = { showAddTagField = !showAddTagField },
                         onAddTag = {
-                            if (newTagInput.isNotBlank()) {
-                                val tag = if (newTagInput.startsWith("#")) newTagInput.trim() else "#${newTagInput.trim()}"
-                                if (!hashtags.contains(tag)) hashtags.add(tag)
-                                newTagInput = ""
-                                showAddTagField = false
-                            }
+                            viewModel.addTag(uiState.currentTagInput)
+                            showAddTagField = false
                         }
                     )
                 }
@@ -338,21 +273,26 @@ fun CreateReviewScreen(
     }
 
     // Modal para buscar e selecionar filme
-    if (showMovieSearchDialog) {
+    if (uiState.showMovieSearchDialog) {
         MovieSearchDialog(
-            onDismiss = { showMovieSearchDialog = false },
+            query = uiState.searchQuery,
+            results = uiState.searchResults,
+            searching = uiState.isSearching,
+            onQueryChange = { viewModel.onSearchQueryChange(it) },
+            onDismiss = { viewModel.setShowMovieSearchDialog(false) },
             onMovieSelected = { movie ->
-                selectedMovie = ReviewMovieSelection(
-                    title = movie.title,
-                    director = "Dir. TMDb Cinema",
-                    duration = "2h 00m",
-                    year = movie.release_date?.take(4) ?: "2024",
-                    posterUrl = movie.poster_path?.let {
-                        if (it.startsWith("http")) it else "https://image.tmdb.org/t/p/w500$it"
-                    } ?: "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVUO.jpg",
-                    genres = listOf("Cinema", "Favorito")
+                viewModel.onSelectMovie(
+                    ReviewMovieSelection(
+                        title = movie.title,
+                        director = "Dir. TMDb Cinema",
+                        duration = "2h 00m",
+                        year = movie.release_date?.take(4) ?: "2024",
+                        posterUrl = movie.poster_path?.let {
+                            if (it.startsWith("http")) it else "https://image.tmdb.org/t/p/w500$it"
+                        } ?: "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVUO.jpg",
+                        genres = listOf("Cinema", "Favorito")
+                    )
                 )
-                showMovieSearchDialog = false
             }
         )
     }
@@ -1203,31 +1143,13 @@ private fun DebateSettingsCard(
 
 @Composable
 private fun MovieSearchDialog(
+    query: String,
+    results: List<Moviefmt>,
+    searching: Boolean,
+    onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onMovieSelected: (Moviefmt) -> Unit
 ) {
-    val repository = remember { MovieRepository() }
-    val coroutineScope = rememberCoroutineScope()
-    var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<Moviefmt>>(emptyList()) }
-    var searching by remember { mutableStateOf(false) }
-
-    LaunchedEffect(query) {
-        if (query.length >= 2) {
-            searching = true
-            delay(350)
-            try {
-                results = repository.searchMovies(BuildConfig.TMDB_API_KEY, query)
-            } catch (e: Exception) {
-                results = emptyList()
-            } finally {
-                searching = false
-            }
-        } else {
-            results = emptyList()
-        }
-    }
-
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -1288,7 +1210,7 @@ private fun MovieSearchDialog(
                         }
                         BasicTextField(
                             value = query,
-                            onValueChange = { query = it },
+                            onValueChange = onQueryChange,
                             singleLine = true,
                             cursorBrush = SolidColor(Color(0xFFFFB82E)),
                             textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 13.sp),
