@@ -138,12 +138,13 @@ object LocalStorageManager {
     /**
      * Atualiza os dados de perfil do usuário atual e persiste as alterações.
      */
-    fun updateProfile(nomeCompleto: String, bio: String, avatarUrl: String?) {
+    fun updateProfile(nomeCompleto: String, bio: String, avatarUrl: String?, bannerUrl: String? = null) {
         val current = _currentUserFlow.value ?: return
         val updated = current.copy(
             nomeCompleto = nomeCompleto.trim(),
             bio = bio.trim(),
-            avatarUrl = avatarUrl?.trim()
+            avatarUrl = avatarUrl?.trim(),
+            bannerUrl = bannerUrl?.trim()
         )
         saveUser(updated)
         setActiveUser(updated)
@@ -188,6 +189,19 @@ object LocalStorageManager {
      */
     fun updateCustomBox(box: BoxDetailData) {
         saveCustomBox(box)
+    }
+
+    /**
+     * Remove uma Box customizada persistida.
+     */
+    fun deleteCustomBox(boxId: Int) {
+        val prefs = preferences ?: return
+        val currentBoxes = _customBoxesFlow.value.toMutableList()
+        val removed = currentBoxes.removeAll { it.id == boxId }
+        if (removed) {
+            _customBoxesFlow.value = currentBoxes
+            prefs.edit().putString(KEY_CUSTOM_BOXES, json.encodeToString(currentBoxes)).apply()
+        }
     }
 
     /**

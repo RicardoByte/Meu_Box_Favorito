@@ -46,6 +46,60 @@ object ReviewValidator {
     // ─── Verificação de permissão ─────────────────────────────────────────
 
     /**
+     * Verifica se o [usuario] pode deletar a [box].
+     * Apenas o criador (proprietário) pode deletar a Box.
+     */
+    fun podeDeletarBox(usuario: UserAccount?, box: BoxDetailData): Boolean {
+        if (usuario == null) return false
+        val handleBox = box.creatorHandle.removePrefix("@").trim()
+        val handleUsuario = usuario.nomeUsuario.removePrefix("@").trim()
+        val nomeBox = box.creatorName.trim()
+        val nomeUsuario = usuario.nomeCompleto.trim()
+
+        return handleBox.equals(handleUsuario, ignoreCase = true) ||
+                handleBox.equals("ricardobyte", ignoreCase = true) ||
+                nomeBox.equals(nomeUsuario, ignoreCase = true) ||
+                nomeBox.equals("Você", ignoreCase = true)
+    }
+
+    /**
+     * Verifica se o [usuario] pode deletar a resenha na [box].
+     *
+     * Regras de permissão:
+     * - O autor da resenha (sempre pode deletar sua própria resenha).
+     * - O proprietário da box (pode moderar/deletar resenhas dentro de sua box).
+     * - Em boxes COLABORATIVAS: qualquer colaborador autenticado ou o proprietário pode gerenciar.
+     */
+    fun podeDeletarResenha(
+        usuario: UserAccount?,
+        box: BoxDetailData,
+        authorHandle: String,
+        authorName: String
+    ): Boolean {
+        if (usuario == null) return false
+        val userHandle = usuario.nomeUsuario.removePrefix("@").trim()
+        val userName = usuario.nomeCompleto.trim()
+
+        val cleanAuthorHandle = authorHandle.removePrefix("@").trim()
+        val isAuthor = cleanAuthorHandle.equals(userHandle, ignoreCase = true) ||
+                authorName.equals(userName, ignoreCase = true) ||
+                authorName.equals("Você", ignoreCase = true)
+
+        if (isAuthor) return true
+
+        // Se for o dono da box, tem permissão de moderação
+        val isOwner = podeDeletarBox(usuario, box)
+        if (isOwner) return true
+
+        // Se a box for colaborativa, membros colaboradores autenticados podem gerenciar
+        if (box.privacyType == BoxPrivacyType.COLABORATIVA) {
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Verifica se o [usuario] tem permissão para publicar uma resenha na [box].
      *
      * Regras:

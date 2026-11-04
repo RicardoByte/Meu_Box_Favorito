@@ -1,5 +1,7 @@
 package com.boxel.meuboxfavorito.ui.screen.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Folder
@@ -34,6 +38,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,6 +78,7 @@ fun ProfileScreen(
     val userBoxes by viewModel.userBoxes.collectAsState()
     val totalFilmes by viewModel.totalFilmes.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    var boxToDelete by remember { mutableStateOf<BoxDetailData?>(null) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -182,6 +188,9 @@ fun ProfileScreen(
                             box = box,
                             onClick = {
                                 onNavigate(AppRoutes.boxDetail(box.id))
+                            },
+                            onDeleteClick = {
+                                boxToDelete = box
                             }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -205,8 +214,23 @@ fun ProfileScreen(
         EditProfileDialog(
             currentUser = currentUser,
             onDismiss = { viewModel.setShowEditDialog(false) },
-            onSave = { novoNome, novaBio, novoAvatar ->
-                viewModel.updateProfile(novoNome, novaBio, novoAvatar)
+            onSave = { novoNome, novaBio, novoAvatar, novoBanner ->
+                viewModel.updateProfile(novoNome, novaBio, novoAvatar, novoBanner)
+            }
+        )
+    }
+
+    if (boxToDelete != null) {
+        ConfirmDeleteDialog(
+            title = "Excluir Box",
+            message = "Tem certeza que deseja excluir a box \"${boxToDelete?.title}\"? Esta ação é permanente e removerá todas as resenhas vinculadas.",
+            onDismiss = { boxToDelete = null },
+            onConfirm = {
+                val id = boxToDelete?.id
+                if (id != null) {
+                    viewModel.deleteBox(id)
+                }
+                boxToDelete = null
             }
         )
     }
@@ -223,115 +247,190 @@ private fun ProfileHeader(
     val bio = user?.bio ?: "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir."
     val joinYear = user?.joinYear ?: 2024
     val avatarUrl = user?.avatarUrl
+    val bannerUrl = user?.bannerUrl
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
+        // ─── Foto de Fundo (Banner) com Avatar Sobreposto ────────
         Box(
             modifier = Modifier
-                .size(88.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF2A2520))
-                .border(width = 2.dp, color = Color(0xFFFFB82E), shape = CircleShape),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .height(186.dp)
         ) {
-            if (!avatarUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = avatarUrl,
-                    contentDescription = "Avatar",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Avatar",
-                    tint = Color(0xFFFFB82E),
-                    modifier = Modifier.size(44.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = displayName,
-            color = Color(0xFFFFB82E),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-
-        Text(
-            text = "$username  •  Entrou em $joinYear",
-            color = Color(0xFF8C8376),
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Text(
-            text = bio,
-            color = Color(0xFFB0AA9E),
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(
+            // Imagem do Banner (140dp)
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clickable { onEditClick() },
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFFFFB82E)
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color(0xFF2C2416), Color(0xFF141315))
+                        )
+                    )
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                if (!bannerUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = bannerUrl,
+                        contentDescription = "Foto de Fundo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    // Overlay para legibilidade e transição suave
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color(0xCC101011))
+                                )
+                            )
+                    )
+                }
+
+                // Botão rápido para editar fotos
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clickable { onEditClick() },
+                    shape = CircleShape,
+                    color = Color(0x99000000)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = Color(0xFF1A1209),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Editar Perfil",
-                        color = Color(0xFF1A1209),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Trocar capa",
+                            tint = Color(0xFFFFB82E),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Capa",
+                            color = Color(0xFFEDE7DE),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
-            Surface(
+            // Avatar centralizado flutuando no limite inferior do banner
+            Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clickable { onLogoutClick() },
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF1E1C17),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2822))
+                    .align(Alignment.BottomCenter)
+                    .size(92.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2A2520))
+                    .border(width = 3.dp, color = Color(0xFFFFB82E), shape = CircleShape)
+                    .clickable { onEditClick() },
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = "Sair",
-                        tint = Color(0xFFE05C5C),
-                        modifier = Modifier.size(18.dp)
+                if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Avatar",
+                        tint = Color(0xFFFFB82E),
+                        modifier = Modifier.size(46.dp)
+                    )
+                }
+            }
+        }
+
+        // ─── Informações do Usuário ──────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = displayName,
+                color = Color(0xFFFFB82E),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "$username  •  Entrou em $joinYear",
+                color = Color(0xFF8C8376),
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = bio,
+                color = Color(0xFFB0AA9E),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clickable { onEditClick() },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFFB82E)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = Color(0xFF1A1209),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Editar Perfil",
+                            color = Color(0xFF1A1209),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clickable { onLogoutClick() },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF1E1C17),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2822))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Sair",
+                            tint = Color(0xFFE05C5C),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -391,7 +490,8 @@ private fun StatDivider() {
 @Composable
 private fun ProfileBoxCard(
     box: BoxDetailData,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteClick: (() -> Unit)? = null
 ) {
     Surface(
         modifier = Modifier
@@ -508,6 +608,21 @@ private fun ProfileBoxCard(
                     )
                 }
             }
+
+            if (onDeleteClick != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Excluir Box",
+                        tint = Color(0xFF8C4040),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -519,12 +634,30 @@ private fun ProfileBoxCard(
 private fun EditProfileDialog(
     currentUser: UserAccount?,
     onDismiss: () -> Unit,
-    onSave: (nomeCompleto: String, bio: String, avatarUrl: String?) -> Unit
+    onSave: (nomeCompleto: String, bio: String, avatarUrl: String?, bannerUrl: String?) -> Unit
 ) {
     var nome by remember { mutableStateOf(currentUser?.nomeCompleto ?: "Ricardo Byte") }
     var bio by remember { mutableStateOf(currentUser?.bio ?: "") }
     var avatar by remember { mutableStateOf(currentUser?.avatarUrl ?: "") }
+    var banner by remember { mutableStateOf(currentUser?.bannerUrl ?: "") }
     var erroNome by remember { mutableStateOf<String?>(null) }
+
+    // Launchers para selecionar imagens do dispositivo
+    val avatarPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            avatar = uri.toString()
+        }
+    }
+
+    val bannerPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            banner = uri.toString()
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -634,31 +767,160 @@ private fun EditProfileDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Campo Avatar URL
+                // ─── Foto de Perfil (Arquivo do dispositivo) ─────
                 Text(
-                    text = "URL DA FOTO DE PERFIL (OPCIONAL)",
+                    text = "FOTO DE PERFIL",
                     color = Color(0xFFC8A97E),
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Box(
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF101012))
-                        .border(1.dp, Color(0xFF2C2A30), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
+                        .clickable { avatarPickerLauncher.launch("image/*") },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF101012),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2A30))
                 ) {
-                    BasicTextField(
-                        value = avatar,
-                        onValueChange = { avatar = it },
-                        singleLine = true,
-                        cursorBrush = SolidColor(Color(0xFFFFB82E)),
-                        textStyle = TextStyle(color = Color(0xFFEDE7DE), fontSize = 14.sp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF262422)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (avatar.isNotBlank()) {
+                                AsyncImage(
+                                    model = avatar,
+                                    contentDescription = "Foto selecionada",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFB82E),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (avatar.isNotBlank()) "Foto selecionada" else "Escolher foto da galeria",
+                                color = Color(0xFFEDE7DE),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "Toque para abrir os arquivos do celular",
+                                color = Color(0xFF8C867C),
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        if (avatar.isNotBlank()) {
+                            IconButton(
+                                onClick = { avatar = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remover foto",
+                                    tint = Color(0xFF8C867C),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // ─── Foto de Fundo (Capa do dispositivo) ─────────
+                Text(
+                    text = "FOTO DE FUNDO (CAPA / BANNER)",
+                    color = Color(0xFFC8A97E),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { bannerPickerLauncher.launch("image/*") },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF101012),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C2A30))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 60.dp, height = 44.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF262422)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (banner.isNotBlank()) {
+                                AsyncImage(
+                                    model = banner,
+                                    contentDescription = "Capa selecionada",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFB82E),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (banner.isNotBlank()) "Capa selecionada" else "Escolher capa da galeria",
+                                color = Color(0xFFEDE7DE),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "Toque para abrir os arquivos do celular",
+                                color = Color(0xFF8C867C),
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        if (banner.isNotBlank()) {
+                            IconButton(
+                                onClick = { banner = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remover capa",
+                                    tint = Color(0xFF8C867C),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -670,7 +932,7 @@ private fun EditProfileDialog(
                             erroNome = "O nome deve ter no mínimo 3 caracteres"
                             return@Button
                         }
-                        onSave(nome, bio, avatar.ifBlank { null })
+                        onSave(nome, bio, avatar.ifBlank { null }, banner.ifBlank { null })
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -684,6 +946,98 @@ private fun EditProfileDialog(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleSmall
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ConfirmDeleteDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF191618),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF382024))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFE05C5C),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = title,
+                        color = Color(0xFFEDE7DE),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = message,
+                    color = Color(0xFFB5ACA0),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clickable { onDismiss() },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF222026),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333038))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "Cancelar",
+                                color = Color(0xFFBEB7AE),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clickable { onConfirm() },
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF8C2D2D)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "Excluir",
+                                color = Color(0xFFFFFFFF),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
                 }
             }
         }

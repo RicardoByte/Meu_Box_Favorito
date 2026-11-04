@@ -925,6 +925,30 @@ object BoxDetailRepository {
         }.reversed()
     }
 
+    fun deleteBox(boxId: Int): Boolean {
+        val removed = boxes.remove(boxId) != null
+        if (removed) {
+            com.boxel.meuboxfavorito.data.local.LocalStorageManager.deleteCustomBox(boxId)
+            notifyBoxesChanged()
+        }
+        return removed
+    }
+
+    fun deleteReview(boxId: Int, reviewId: Int): Boolean {
+        val box = boxes[boxId] ?: return false
+        val currentReviews = box.reviews
+        val updatedReviews = currentReviews.filter { it.id != reviewId }
+        if (updatedReviews.size == currentReviews.size) return false
+
+        val updatedBox = box.copy(
+            reviews = updatedReviews
+        )
+        boxes[boxId] = updatedBox
+        com.boxel.meuboxfavorito.data.local.LocalStorageManager.updateCustomBox(updatedBox)
+        notifyBoxesChanged()
+        return true
+    }
+
     fun addReview(
         boxId: Int,
         movieTitle: String,
