@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Groups
@@ -66,6 +67,8 @@ import com.boxel.meuboxfavorito.models.BoxDetailData
 import com.boxel.meuboxfavorito.models.BoxPrivacyType
 import com.boxel.meuboxfavorito.models.BoxReviewItem
 import com.boxel.meuboxfavorito.models.TagStyle
+import com.boxel.meuboxfavorito.data.validator.ReviewValidator
+import com.boxel.meuboxfavorito.ui.screen.profile.ConfirmDeleteDialog
 import com.boxel.meuboxfavorito.ui.navigation.AppBottomBar
 import com.boxel.meuboxfavorito.ui.view.BoxDetailViewModel
 
@@ -75,6 +78,7 @@ fun BoxDetailScreen(
     onBack: () -> Unit,
     onMovieClick: (Int) -> Unit = {},
     onDiscussionClick: (reviewId: Int) -> Unit = {},
+    onCreateReviewClick: (boxId: Int) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     viewModel: BoxDetailViewModel = viewModel()
 ) {
@@ -83,7 +87,11 @@ fun BoxDetailScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val boxData = uiState.boxData
+
+    var showDeleteBoxDialog by remember { mutableStateOf(false) }
+    var reviewToDelete by remember { mutableStateOf<BoxReviewItem?>(null) }
 
     if (boxData == null) {
         Surface(
@@ -104,9 +112,12 @@ fun BoxDetailScreen(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // ─── Top Bar ──────────────────────────────────────────────
+            val podeDeletarBox = ReviewValidator.podeDeletarBox(currentUser, boxData)
             BoxTopBar(
                 onBack = onBack,
-                onShare = { /* Compartilhar */ }
+                onShare = { /* Compartilhar */ },
+                canDelete = podeDeletarBox,
+                onDelete = { showDeleteBoxDialog = true }
             )
 
             // ─── Seletor de Demonstração (Pública, Privada, Colaborativa) ─
@@ -156,8 +167,19 @@ fun BoxDetailScreen(
                     items = boxData.reviews,
                     key = { it.id }
                 ) { review ->
+                    val podeDeletar = ReviewValidator.podeDeletarResenha(
+                        usuario = currentUser,
+                        box = boxData,
+                        authorHandle = review.authorHandle,
+                        authorName = review.authorName
+                    )
+
                     ReviewCard(
                         review = review,
+                        canDelete = podeDeletar,
+                        onDeleteClick = {
+                            reviewToDelete = review
+                        },
                         onLikeClick = {
                             viewModel.toggleLikeReview(review.id)
                         },
@@ -172,7 +194,7 @@ fun BoxDetailScreen(
                     BoxBottomCtaBanner(
                         privacyType = boxData.privacyType,
                         onActionClick = {
-                            // Ação contextual: sugerir filme ou adicionar nota
+                            onCreateReviewClick(boxData.id)
                         }
                     )
                 }
@@ -189,6 +211,33 @@ fun BoxDetailScreen(
             )
         }
     }
+
+    if (showDeleteBoxDialog) {
+        ConfirmDeleteDialog(
+            title = "Excluir Box",
+            message = "Tem certeza que deseja excluir esta box? Todos os filmes e resenhas catalogados nela serão apagados.",
+            onDismiss = { showDeleteBoxDialog = false },
+            onConfirm = {
+                showDeleteBoxDialog = false
+                viewModel.deleteBox(onDeleted = onBack)
+            }
+        )
+    }
+
+    if (reviewToDelete != null) {
+        ConfirmDeleteDialog(
+            title = "Excluir Resenha",
+            message = "Tem certeza que deseja excluir a resenha \"${reviewToDelete?.title}\" de ${reviewToDelete?.authorName}? Esta ação não pode ser desfeita.",
+            onDismiss = { reviewToDelete = null },
+            onConfirm = {
+                val reviewId = reviewToDelete?.id
+                if (reviewId != null) {
+                    viewModel.deleteReview(reviewId)
+                }
+                reviewToDelete = null
+            }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +247,9 @@ fun BoxDetailScreen(
 @Composable
 private fun BoxTopBar(
     onBack: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    canDelete: Boolean = false,
+    onDelete: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -224,12 +275,14 @@ private fun BoxTopBar(
             )
         }
 
-        IconButton(onClick = { /* Opções extras */ }) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "Mais opções",
-                tint = Color(0xFFEDE7DE)
-            )
+        if (canDelete) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Excluir Box",
+                    tint = Color(0xFFE05C5C)
+                )
+            }
         }
     }
 }
@@ -804,6 +857,8 @@ private fun ResenhasSectionHeader(
 @Composable
 private fun ReviewCard(
     review: BoxReviewItem,
+    canDelete: Boolean = false,
+    onDeleteClick: () -> Unit = {},
     onLikeClick: () -> Unit,
     onParticiparClick: () -> Unit
 ) {
@@ -817,7 +872,7 @@ private fun ReviewCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
-            // ─── Header da Resenha (Autor + Tag) ──────────────────
+            // ─── Header da Resenha (Autor + Tag + Ação de Deletar) ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -866,6 +921,21 @@ private fun ReviewCard(
 
                 // Tag Estilizada
                 ReviewTagChip(tagText = review.tagText, tagStyle = review.tagStyle)
+
+                if (canDelete) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Excluir Resenha",
+                            tint = Color(0xFF8C4040),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

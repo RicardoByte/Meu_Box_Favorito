@@ -78,10 +78,10 @@ object UserRepository {
     }
 
     /**
-     * Atualiza o perfil do usuário logado (nome, bio e avatar) e propaga reativamente.
+     * Atualiza o perfil do usuário logado (nome, bio, avatar e banner) e propaga reativamente.
      */
-    fun updateProfile(nomeCompleto: String, bio: String, avatarUrl: String?) {
-        LocalStorageManager.updateProfile(nomeCompleto, bio, avatarUrl)
+    fun updateProfile(nomeCompleto: String, bio: String, avatarUrl: String?, bannerUrl: String? = null) {
+        LocalStorageManager.updateProfile(nomeCompleto, bio, avatarUrl, bannerUrl)
     }
 
     /**

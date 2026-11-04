@@ -78,6 +78,7 @@ import coil.compose.AsyncImage
 import com.boxel.meuboxfavorito.models.BoxDetailData
 import com.boxel.meuboxfavorito.models.Moviefmt
 import com.boxel.meuboxfavorito.models.ReviewMovieSelection
+import com.boxel.meuboxfavorito.ui.view.CreateReviewFormErrors
 import com.boxel.meuboxfavorito.ui.view.CreateReviewViewModel
 
 @Composable
@@ -127,6 +128,13 @@ fun CreateReviewScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // ─── Banner de Permissão Negada ───────────────────────
+                if (uiState.permissaoNegada != null) {
+                    item {
+                        PermissionDeniedBanner(message = uiState.permissaoNegada!!)
+                    }
+                }
+
                 // ─── 1. Box de Destino ────────────────────────────────
                 item {
                     DestinationBoxCard(
@@ -157,7 +165,8 @@ fun CreateReviewScreen(
                 item {
                     SelectedMovieCard(
                         movie = uiState.selectedMovie,
-                        onChangeMovie = { viewModel.setShowMovieSearchDialog(true) }
+                        onChangeMovie = { viewModel.setShowMovieSearchDialog(true) },
+                        erroFilme = uiState.formErrors.filme
                     )
                 }
 
@@ -169,7 +178,8 @@ fun CreateReviewScreen(
                         isObraPrima = uiState.isObraPrima,
                         onToggleObraPrima = { viewModel.toggleObraPrima() },
                         isFavorito = uiState.isFavorito,
-                        onToggleFavorito = { viewModel.toggleFavorito() }
+                        onToggleFavorito = { viewModel.toggleFavorito() },
+                        erroNota = uiState.formErrors.nota
                     )
                 }
 
@@ -177,7 +187,8 @@ fun CreateReviewScreen(
                 item {
                     DebateTitleSection(
                         title = uiState.debateTitle,
-                        onTitleChange = { viewModel.onDebateTitleChange(it) }
+                        onTitleChange = { viewModel.onDebateTitleChange(it) },
+                        erroTitulo = uiState.formErrors.titulo
                     )
                 }
 
@@ -197,7 +208,8 @@ fun CreateReviewScreen(
                         onAddTag = {
                             viewModel.addTag(uiState.currentTagInput)
                             showAddTagField = false
-                        }
+                        },
+                        erroAnalise = uiState.formErrors.analise
                     )
                 }
 
@@ -224,13 +236,14 @@ fun CreateReviewScreen(
                             .padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        val publicarBloqueado = uiState.permissaoNegada != null
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp)
-                                .clickable { publicar() },
+                                .clickable { if (!publicarBloqueado) publicar() },
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFFB82E)
+                            color = if (publicarBloqueado) Color(0xFF3A3028) else Color(0xFFFFB82E)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize(),
@@ -240,13 +253,13 @@ fun CreateReviewScreen(
                                 Icon(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = null,
-                                    tint = Color(0xFF1A1209),
+                                    tint = if (publicarBloqueado) Color(0xFF6E685E) else Color(0xFF1A1209),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Publicar Resenha",
-                                    color = Color(0xFF1A1209),
+                                    color = if (publicarBloqueado) Color(0xFF6E685E) else Color(0xFF1A1209),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
@@ -301,6 +314,60 @@ fun CreateReviewScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTES AUXILIARES
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Banner de erro de campo (reutilizável) ───────────────────────────────────
+@Composable
+private fun ErroInline(mensagem: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 4.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            tint = Color(0xFFFF5C5C),
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = mensagem,
+            color = Color(0xFFFF7E7E),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+// ─── Banner de permissão negada ───────────────────────────────────────────────
+@Composable
+private fun PermissionDeniedBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF2A1010),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF7A2020))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = Color(0xFFFF5C5C),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = message,
+                color = Color(0xFFFF8A8A),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
 
 @Composable
 private fun CreateReviewTopBar(
@@ -455,126 +522,135 @@ private fun DestinationBoxCard(
 @Composable
 private fun SelectedMovieCard(
     movie: ReviewMovieSelection,
-    onChangeMovie: () -> Unit
+    onChangeMovie: () -> Unit,
+    erroFilme: String? = null
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF151518),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF222228))
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+    Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF151518),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (erroFilme != null) Color(0xFF7A2020) else Color(0xFF222228)
+            )
         ) {
-            // Poster com badge de ano
-            Box(
-                modifier = Modifier
-                    .width(80.dp)
-                    .height(115.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF222228))
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AsyncImage(
-                    model = movie.posterUrl,
-                    contentDescription = movie.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-
-                Surface(
+                // Poster com badge de ano
+                Box(
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xCC000000)
+                        .width(80.dp)
+                        .height(115.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF222228))
                 ) {
-                    Text(
-                        text = movie.year,
-                        color = Color(0xFFFFB82E),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "FILME SELECIONADO",
-                        color = Color(0xFFC8A97E),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                    AsyncImage(
+                        model = movie.posterUrl,
+                        contentDescription = movie.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
 
-                    Row(
-                        modifier = Modifier.clickable { onChangeMovie() },
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xCC000000)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SwapHoriz,
-                            contentDescription = null,
-                            tint = Color(0xFFBEB7AE),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = "Alterar",
-                            color = Color(0xFFBEB7AE),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
+                            text = movie.year,
+                            color = Color(0xFFFFB82E),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-                Text(
-                    text = movie.title,
-                    color = Color(0xFFEDE7DE),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "FILME SELECIONADO",
+                            color = Color(0xFFC8A97E),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = "${movie.director} • ${movie.duration}",
-                    color = Color(0xFF8C867C),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 12.sp
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    movie.genres.forEach { genre ->
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF222228)
+                        Row(
+                            modifier = Modifier.clickable { onChangeMovie() },
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "🎬 $genre",
-                                color = Color(0xFFC8C2B8),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = Color(0xFFBEB7AE),
+                                modifier = Modifier.size(14.dp)
                             )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "Alterar",
+                                color = Color(0xFFBEB7AE),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = movie.title,
+                        color = Color(0xFFEDE7DE),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = "${movie.director} • ${movie.duration}",
+                        color = Color(0xFF8C867C),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        movie.genres.forEach { genre ->
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF222228)
+                            ) {
+                                Text(
+                                    text = "🎬 $genre",
+                                    color = Color(0xFFC8C2B8),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+        if (erroFilme != null) {
+            ErroInline(mensagem = erroFilme)
         }
     }
 }
@@ -586,7 +662,8 @@ private fun VerdictRatingCard(
     isObraPrima: Boolean,
     onToggleObraPrima: () -> Unit,
     isFavorito: Boolean,
-    onToggleFavorito: () -> Unit
+    onToggleFavorito: () -> Unit,
+    erroNota: String? = null
 ) {
     val ratingLabel = when {
         rating >= 5.0f -> "OBRA-PRIMA"
@@ -597,132 +674,140 @@ private fun VerdictRatingCard(
         else -> "DECEPCIONANTE"
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF151518),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF222228))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Veredito & Classificação",
-                    color = Color(0xFFEDE7DE),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+    Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF151518),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (erroNota != null) Color(0xFF7A2020) else Color(0xFF222228)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Veredito & Classificação",
+                        color = Color(0xFFEDE7DE),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
 
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = String.format("%.1f", rating),
-                        color = Color(0xFFFFB82E),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = " / 5.0",
-                        color = Color(0xFF6E685E),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = String.format("%.1f", rating),
+                            color = Color(0xFFFFB82E),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = " / 5.0",
+                            color = Color(0xFF6E685E),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-            // Linha das 5 estrelas interativas
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (i in 1..5) {
-                        val starValue = i.toFloat()
-                        val isFilled = rating >= starValue
-                        val isHalf = rating >= (starValue - 0.5f) && rating < starValue
+                // Linha das 5 estrelas interativas
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (i in 1..5) {
+                            val starValue = i.toFloat()
+                            val isFilled = rating >= starValue
+                            val isHalf = rating >= (starValue - 0.5f) && rating < starValue
 
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Nota $i",
-                            tint = if (isFilled || isHalf) Color(0xFFFFB82E) else Color(0xFF33333C),
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clickable {
-                                    // Alterna entre nota inteira e meia nota
-                                    if (rating == starValue) {
-                                        onRatingChange(starValue - 0.5f)
-                                    } else {
-                                        onRatingChange(starValue)
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Nota $i",
+                                tint = if (isFilled || isHalf) Color(0xFFFFB82E) else Color(0xFF33333C),
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clickable {
+                                        // Alterna entre nota inteira e meia nota
+                                        if (rating == starValue) {
+                                            onRatingChange(starValue - 0.5f)
+                                        } else {
+                                            onRatingChange(starValue)
+                                        }
                                     }
-                                }
-                        )
+                            )
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
 
-                Text(
-                    text = ratingLabel,
-                    color = Color(0xFFC8A97E),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Toggles de Selo Obra-Prima e Favorito
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(
-                    modifier = Modifier.clickable { onToggleObraPrima() },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isObraPrima) Color(0xFF3B2F15) else Color(0xFF1E1E24),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isObraPrima) Color(0xFFFFB82E) else Color(0xFF2C2C33)
+                    Text(
+                        text = ratingLabel,
+                        color = Color(0xFFC8A97E),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
                     )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "• Selo Obra-Prima",
-                            color = if (isObraPrima) Color(0xFFFFB82E) else Color(0xFF9E978C),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
 
-                Surface(
-                    modifier = Modifier.clickable { onToggleFavorito() },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isFavorito) Color(0xFF32192A) else Color(0xFF1E1E24),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isFavorito) Color(0xFFE2559C) else Color(0xFF2C2C33)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "♥ Favorito Pessoal",
-                            color = if (isFavorito) Color(0xFFFF7BB8) else Color(0xFF9E978C),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Toggles de Selo Obra-Prima e Favorito
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        modifier = Modifier.clickable { onToggleObraPrima() },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isObraPrima) Color(0xFF3B2F15) else Color(0xFF1E1E24),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isObraPrima) Color(0xFFFFB82E) else Color(0xFF2C2C33)
                         )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "• Selo Obra-Prima",
+                                color = if (isObraPrima) Color(0xFFFFB82E) else Color(0xFF9E978C),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.clickable { onToggleFavorito() },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isFavorito) Color(0xFF32192A) else Color(0xFF1E1E24),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isFavorito) Color(0xFFE2559C) else Color(0xFF2C2C33)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "♥ Favorito Pessoal",
+                                color = if (isFavorito) Color(0xFFFF7BB8) else Color(0xFF9E978C),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
+        }
+        if (erroNota != null) {
+            ErroInline(mensagem = erroNota)
         }
     }
 }
@@ -730,7 +815,8 @@ private fun VerdictRatingCard(
 @Composable
 private fun DebateTitleSection(
     title: String,
-    onTitleChange: (String) -> Unit
+    onTitleChange: (String) -> Unit,
+    erroTitulo: String? = null
 ) {
     Column {
         Text(
@@ -749,7 +835,11 @@ private fun DebateTitleSection(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0xFF131316))
-                .border(1.dp, Color(0xFF26262B), RoundedCornerShape(10.dp))
+                .border(
+                    1.dp,
+                    if (erroTitulo != null) Color(0xFF7A2020) else Color(0xFF26262B),
+                    RoundedCornerShape(10.dp)
+                )
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             BasicTextField(
@@ -775,6 +865,9 @@ private fun DebateTitleSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        if (erroTitulo != null) {
+            ErroInline(mensagem = erroTitulo)
+        }
     }
 }
 
@@ -790,7 +883,8 @@ private fun AnalysisSection(
     onNewTagChange: (String) -> Unit,
     showAddTagField: Boolean,
     onToggleAddTag: () -> Unit,
-    onAddTag: () -> Unit
+    onAddTag: () -> Unit,
+    erroAnalise: String? = null
 ) {
     Column {
         Row(
@@ -822,7 +916,11 @@ private fun AnalysisSection(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0xFF131316))
-                .border(1.dp, Color(0xFF26262B), RoundedCornerShape(10.dp))
+                .border(
+                    1.dp,
+                    if (erroAnalise != null) Color(0xFF7A2020) else Color(0xFF26262B),
+                    RoundedCornerShape(10.dp)
+                )
         ) {
             Box(
                 modifier = Modifier
@@ -1016,6 +1114,9 @@ private fun AnalysisSection(
                     }
                 }
             }
+        }
+        if (erroAnalise != null) {
+            ErroInline(mensagem = erroAnalise)
         }
     }
 }

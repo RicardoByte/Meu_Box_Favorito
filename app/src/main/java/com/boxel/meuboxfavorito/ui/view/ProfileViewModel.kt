@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -47,8 +48,8 @@ class ProfileViewModel(
         initialValue = emptyList()
     )
 
-    val totalFilmes: StateFlow<Int> = combine(userBoxes) { boxes ->
-        boxes.first().sumOf { it.filmesCount }
+    val totalFilmes: StateFlow<Int> = userBoxes.map { boxes ->
+        boxes.sumOf { it.filmesCount }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -59,9 +60,13 @@ class ProfileViewModel(
         _uiState.update { it.copy(showEditDialog = show) }
     }
 
-    fun updateProfile(nome: String, bio: String, avatarUrl: String?) {
-        userRepository.updateProfile(nome, bio, avatarUrl)
+    fun updateProfile(nome: String, bio: String, avatarUrl: String?, bannerUrl: String? = null) {
+        userRepository.updateProfile(nome, bio, avatarUrl, bannerUrl)
         setShowEditDialog(false)
+    }
+
+    fun deleteBox(boxId: Int) {
+        boxRepository.deleteBox(boxId)
     }
 
     fun logout() {

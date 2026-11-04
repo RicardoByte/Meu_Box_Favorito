@@ -16,6 +16,7 @@ data class UserAccount(
     val generosFavoritos: Set<String> = emptySet(),
     val bio: String = "Curando as melhores experiências cinematográficas no Meu Box.",
     val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
     val joinYear: Int = 2026,
     val seguidores: Int = 0
 )
