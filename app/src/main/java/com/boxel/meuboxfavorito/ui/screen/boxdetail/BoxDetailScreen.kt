@@ -75,6 +75,7 @@ fun BoxDetailScreen(
     onBack: () -> Unit,
     onMovieClick: (Int) -> Unit = {},
     onDiscussionClick: (reviewId: Int) -> Unit = {},
+    onCreateReviewClick: (boxId: Int) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     viewModel: BoxDetailViewModel = viewModel()
 ) {
@@ -172,7 +173,7 @@ fun BoxDetailScreen(
                     BoxBottomCtaBanner(
                         privacyType = boxData.privacyType,
                         onActionClick = {
-                            // Ação contextual: sugerir filme ou adicionar nota
+                            onCreateReviewClick(boxData.id)
                         }
                     )
                 }

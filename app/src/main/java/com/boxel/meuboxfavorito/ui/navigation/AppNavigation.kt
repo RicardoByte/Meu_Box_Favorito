@@ -161,7 +161,32 @@ fun AppNavigation(
                 onDiscussionClick = { reviewId ->
                     navController.navigate(AppRoutes.discussion(boxId, reviewId))
                 },
+                onCreateReviewClick = { targetBoxId ->
+                    navController.navigate(AppRoutes.createReview(targetBoxId))
+                },
                 onNavigate = { route -> navController.navigate(route) }
+            )
+        }
+
+        // ──────────────────────────────
+        // CRIAR RESENHA / SUGERIR FILME
+        // ──────────────────────────────
+        composable(
+            route = AppRoutes.CREATE_REVIEW,
+            arguments = listOf(
+                navArgument("boxId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val boxId = backStackEntry.arguments?.getInt("boxId") ?: 1
+
+            CreateReviewScreen(
+                initialBoxId = boxId,
+                onBack = { navController.popBackStack() },
+                onReviewPublished = { publishedBoxId ->
+                    navController.navigate(AppRoutes.boxDetail(publishedBoxId)) {
+                        popUpTo(AppRoutes.boxDetail(publishedBoxId)) { inclusive = true }
+                    }
+                }
             )
         }
 
