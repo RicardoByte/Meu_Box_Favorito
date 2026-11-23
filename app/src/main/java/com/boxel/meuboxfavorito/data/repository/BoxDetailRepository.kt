@@ -881,8 +881,8 @@ object BoxDetailRepository {
         filmes: List<Moviefmt> = emptyList()
     ): BoxDetailData {
         val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
-        val creatorName = currentUser?.nomeCompleto ?: "Você"
-        val creatorHandle = "@${currentUser?.nomeUsuario ?: "ricardobyte"}"
+        val creatorName = currentUser?.nomeCompleto ?: "User temporario"
+        val creatorHandle = "@${currentUser?.nomeUsuario ?: "usertemporario"}"
         val creatorAvatar = currentUser?.avatarUrl
 
         val newId = (boxes.keys.maxOrNull() ?: 5) + 1
@@ -964,8 +964,8 @@ object BoxDetailRepository {
     ): BoxReviewItem {
         val box = getBoxById(boxId)
         val currentUser = com.boxel.meuboxfavorito.data.repository.UserRepository.getCurrentUser()
-        val authorName = currentUser?.nomeCompleto ?: "Você"
-        val authorHandle = "@${currentUser?.nomeUsuario ?: "ricardobyte"}"
+        val authorName = currentUser?.nomeCompleto ?: "User temporario"
+        val authorHandle = "@${currentUser?.nomeUsuario ?: "usertemporario"}"
         val authorAvatar = currentUser?.avatarUrl
 
         val newReviewId = (box.reviews.maxOfOrNull { it.id } ?: (boxId * 100)) + 1
