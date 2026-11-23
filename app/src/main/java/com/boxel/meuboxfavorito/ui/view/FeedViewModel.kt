@@ -1,20 +1,25 @@
-package com.boxel.meuboxfavorito.ui.feed
+package com.boxel.meuboxfavorito.ui.view
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.boxel.meuboxfavorito.data.remote.Moviefmt
+import com.boxel.meuboxfavorito.data.repository.BoxDetailRepository
 import com.boxel.meuboxfavorito.data.repository.MovieRepository
+import com.boxel.meuboxfavorito.models.BoxDetailData
+import com.boxel.meuboxfavorito.models.Moviefmt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class FeedViewModel(
-    private val repository: MovieRepository = MovieRepository()
+    private val repository: MovieRepository = MovieRepository(),
+    private val boxRepository: BoxDetailRepository = BoxDetailRepository
 ) : ViewModel() {
 
     private val _movies = MutableStateFlow<List<Moviefmt>>(emptyList())
     val movies: StateFlow<List<Moviefmt>> = _movies.asStateFlow()
+
+    val communityBoxes: StateFlow<List<BoxDetailData>> = boxRepository.boxesFlow
 
     private val _carregando = MutableStateFlow(false)
     val carregando: StateFlow<Boolean> = _carregando.asStateFlow()
