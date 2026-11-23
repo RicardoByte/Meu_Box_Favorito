@@ -33,13 +33,15 @@ class ProfileViewModel(
         boxRepository.boxesFlow,
         currentUser
     ) { allBoxes, user ->
-        val userHandle = "@${user?.nomeUsuario ?: "ricardobyte"}"
-        val userName = user?.nomeCompleto ?: "Ricardo Byte"
+        val userHandle = "@${user?.nomeUsuario ?: "usertemporario"}"
+        val userName = user?.nomeCompleto ?: "User temporario"
 
         allBoxes.filter {
             it.creatorHandle.equals(userHandle, ignoreCase = true) ||
-            it.creatorHandle == "@ricardobyte" ||
+            it.creatorHandle.equals("@usertemporario", ignoreCase = true) ||
+            it.creatorHandle.equals("@ricardobyte", ignoreCase = true) ||
             it.creatorName.equals(userName, ignoreCase = true) ||
+            it.creatorName.equals("User temporario", ignoreCase = true) ||
             it.creatorName == "Você"
         }.reversed()
     }.stateIn(

@@ -116,24 +116,43 @@ object LocalStorageManager {
     private fun loadRegisteredUsers() {
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val usersJson = prefs.getString(KEY_USERS, null)
-        val loadedUsers: List<UserAccount> = if (!usersJson.isNullOrBlank()) {
+        var loadedUsers: List<UserAccount> = if (!usersJson.isNullOrBlank()) {
             try { json.decodeFromString(usersJson) } catch (_: Exception) { emptyList() }
         } else {
-            listOf(
-                UserAccount(
-                    id                = "default_user_1",
-                    nomeCompleto      = "User teste",
-                    nomeUsuario       = "testeuser",
-                    email             = "userteste@boxel.com",
-                    senhaHash         = "12345678A",
-                    generosFavoritos  = setOf("Ficção Científica", "Suspense", "Neo-Noir"),
-                    bio               = "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir.",
-                    avatarUrl         = null,
-                    joinYear          = 2024,
-                    seguidores        = 342
-                )
-            )
+            emptyList()
         }
+
+        // Usuário temporário para usuários sem conta (guest)
+        val guestUser = UserAccount(
+            id                = "temp_guest_user",
+            nomeCompleto      = "User temporario",
+            nomeUsuario       = "usertemporario",
+            email             = "temporario@boxel.com",
+            senhaHash         = "",
+            generosFavoritos  = setOf("Ficção Científica", "Suspense", "Neo-Noir"),
+            bio               = "Usuário temporário no Meu Box.",
+            avatarUrl         = null,
+            joinYear          = 2026,
+            seguidores        = 0
+        )
+
+        // Se a lista estiver vazia ou se contiver o antigo usuário teste, substitui/migra para User temporario
+        if (loadedUsers.isEmpty()) {
+            loadedUsers = listOf(guestUser)
+            persistUsersList(loadedUsers)
+        } else if (loadedUsers.any { it.id == "default_user_1" || it.nomeCompleto == "User teste" }) {
+            loadedUsers = loadedUsers.map { u ->
+                if (u.id == "default_user_1" || u.nomeCompleto == "User teste") {
+                    u.copy(
+                        nomeCompleto = "User temporario",
+                        nomeUsuario = "usertemporario",
+                        bio = "Usuário temporário no Meu Box."
+                    )
+                } else u
+            }
+            persistUsersList(loadedUsers)
+        }
+
         _usersFlow.value = loadedUsers
         _currentUserFlow.value = loadedUsers.firstOrNull()
     }

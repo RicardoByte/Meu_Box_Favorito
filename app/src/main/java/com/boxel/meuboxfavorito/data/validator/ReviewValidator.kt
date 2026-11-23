@@ -57,8 +57,10 @@ object ReviewValidator {
         val nomeUsuario = usuario.nomeCompleto.trim()
 
         return handleBox.equals(handleUsuario, ignoreCase = true) ||
+                handleBox.equals("usertemporario", ignoreCase = true) ||
                 handleBox.equals("ricardobyte", ignoreCase = true) ||
                 nomeBox.equals(nomeUsuario, ignoreCase = true) ||
+                nomeBox.equals("User temporario", ignoreCase = true) ||
                 nomeBox.equals("Você", ignoreCase = true)
     }
 
@@ -82,7 +84,9 @@ object ReviewValidator {
 
         val cleanAuthorHandle = authorHandle.removePrefix("@").trim()
         val isAuthor = cleanAuthorHandle.equals(userHandle, ignoreCase = true) ||
+                cleanAuthorHandle.equals("usertemporario", ignoreCase = true) ||
                 authorName.equals(userName, ignoreCase = true) ||
+                authorName.equals("User temporario", ignoreCase = true) ||
                 authorName.equals("Você", ignoreCase = true)
 
         if (isAuthor) return true

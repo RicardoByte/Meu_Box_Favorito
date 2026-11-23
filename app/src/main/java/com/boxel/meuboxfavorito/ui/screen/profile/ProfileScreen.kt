@@ -242,10 +242,10 @@ private fun ProfileHeader(
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
-    val displayName = user?.nomeCompleto ?: "Ricardo Byte"
-    val username = "@${user?.nomeUsuario ?: "ricardobyte"}"
-    val bio = user?.bio ?: "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir."
-    val joinYear = user?.joinYear ?: 2024
+    val displayName = user?.nomeCompleto ?: "User temporario"
+    val username = "@${user?.nomeUsuario ?: "usertemporario"}"
+    val bio = user?.bio ?: "Usuário temporário no Meu Box."
+    val joinYear = user?.joinYear ?: 2026
     val avatarUrl = user?.avatarUrl
     val bannerUrl = user?.bannerUrl
 
@@ -636,7 +636,7 @@ private fun EditProfileDialog(
     onDismiss: () -> Unit,
     onSave: (nomeCompleto: String, bio: String, avatarUrl: String?, bannerUrl: String?) -> Unit
 ) {
-    var nome by remember { mutableStateOf(currentUser?.nomeCompleto ?: "Ricardo Byte") }
+    var nome by remember { mutableStateOf(currentUser?.nomeCompleto ?: "User temporario") }
     var bio by remember { mutableStateOf(currentUser?.bio ?: "") }
     var avatar by remember { mutableStateOf(currentUser?.avatarUrl ?: "") }
     var banner by remember { mutableStateOf(currentUser?.bannerUrl ?: "") }
