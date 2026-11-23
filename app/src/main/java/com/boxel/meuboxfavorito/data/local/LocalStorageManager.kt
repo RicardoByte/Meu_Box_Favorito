@@ -74,9 +74,9 @@ object LocalStorageManager {
             listOf(
                 UserAccount(
                     id = "default_user_1",
-                    nomeCompleto = "Ricardo Byte",
-                    nomeUsuario = "ricardobyte",
-                    email = "ricardo@boxel.com",
+                    nomeCompleto = "User teste",
+                    nomeUsuario = "testeuser",
+                    email = "userteste@boxel.com",
                     senhaHash = "12345678A",
                     generosFavoritos = setOf("Ficção Científica", "Suspense", "Neo-Noir"),
                     bio = "Curando as melhores experiências sci-fi, suspense psicológico e neo-noir.",
